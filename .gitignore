@@ -1,0 +1,43 @@
+# Node.js dependencies
+node_modules/
+
+# Hardhat build artifacts & cache
+artifacts/
+cache/
+
+# TypeChain-generated typings
+typechain/
+
+# dotenv environment variables
+.env
+.env.*.local
+
+# Solidity coverage (if using solidity-coverage)
+coverage/
+coverage.json
+solidity-coverage.json
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# IDE/editor folders and files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Optional: Mac-specific files
+.AppleDouble
+.LSOverride
+
+# Optional: Swap files, etc.
+*~
