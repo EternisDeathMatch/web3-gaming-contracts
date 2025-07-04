@@ -1,26 +1,25 @@
+import { run } from "hardhat";
 
-const hre = require("hardhat");
-
-async function main() {
-  const contractAddress = process.argv[2];
-  const deploymentFee = process.argv[3];
-  const feeRecipient = process.argv[4];
+async function main(): Promise<void> {
+  const [,, contractAddress, deploymentFee, feeRecipient] = process.argv;
 
   if (!contractAddress || !deploymentFee || !feeRecipient) {
-    console.log("Usage: npx hardhat run scripts/verify.js --network <network> <contractAddress> <deploymentFee> <feeRecipient>");
+    console.error(
+      "Usage: npx hardhat run scripts/verify.ts --network <network> <contractAddress> <deploymentFee> <feeRecipient>"
+    );
     process.exit(1);
   }
 
   console.log("Verifying contract at:", contractAddress);
 
   try {
-    await hre.run("verify:verify", {
+    await run("verify:verify", {
       address: contractAddress,
       constructorArguments: [deploymentFee, feeRecipient],
     });
     console.log("Contract verified successfully!");
-  } catch (error) {
-    console.log("Verification failed:", error.message);
+  } catch (error: any) {
+    console.error("Verification failed:", error.message || error);
   }
 }
 
