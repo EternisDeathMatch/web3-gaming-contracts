@@ -1,12 +1,12 @@
 import { ethers, run, network } from "hardhat";
-
+//0xf252C445522BA5d345554953B5de7409161771DE
 async function main(): Promise<void> {
   console.log("Deploying CollectionFactory contract...");
 
   // Get signer
   const [deployer] = await ethers.getSigners();
-  console.log("Deployer address:", deployer.address);
-  const balance = await ethers.provider.getBalance(deployer.address);
+  console.log("Deployer address:", await deployer.getAddress());
+  const balance = await ethers.provider.getBalance(await deployer.getAddress());
   console.log(
     "Account balance:",
     ethers.formatEther(balance),
@@ -15,7 +15,7 @@ async function main(): Promise<void> {
 
   // Prepare deployment parameters
   const deploymentFee = ethers.parseEther("0.001"); // 0.001 ETH
-  const feeRecipient = deployer.address;
+  const feeRecipient = deployer.getAddress();
 
   // Deploy
   const Factory = await ethers.getContractFactory("CollectionFactory");

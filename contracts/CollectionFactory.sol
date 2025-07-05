@@ -1,4 +1,3 @@
-
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
@@ -11,24 +10,25 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
  * @dev Factory contract for deploying GameNFTCollection contracts
  */
 contract CollectionFactory is Ownable, ReentrancyGuard {
-    
     // Deployment fee in wei
     uint256 public deploymentFee;
-    
+
     // Platform fee recipient
     address public feeRecipient;
-    
+
     // Mapping to track deployed collections
     mapping(address => bool) public isDeployedCollection;
     mapping(address => address[]) public userCollections;
-    
+    mapping(uint256 => address[]) public gameCollections;
+
     // Array of all deployed collections
     address[] public allCollections;
-    
+
     // Events
     event CollectionDeployed(
         address indexed collection,
         address indexed creator,
+        uint256 indexed gameId,
         string name,
         string symbol,
         uint256 maxSupply
@@ -45,6 +45,7 @@ contract CollectionFactory is Ownable, ReentrancyGuard {
      * @dev Deploy a new GameNFTCollection contract
      */
     function deployCollection(
+        uint256 gameId,
         string memory name,
         string memory symbol,
         string memory description,
@@ -71,11 +72,12 @@ contract CollectionFactory is Ownable, ReentrancyGuard {
         );
 
         address collectionAddress = address(collection);
-        
+
         // Track the deployed collection
         isDeployedCollection[collectionAddress] = true;
         userCollections[msg.sender].push(collectionAddress);
         allCollections.push(collectionAddress);
+        gameCollections[gameId].push(collectionAddress);
 
         // Transfer deployment fee to fee recipient
         if (msg.value > 0 && feeRecipient != address(0)) {
@@ -85,6 +87,7 @@ contract CollectionFactory is Ownable, ReentrancyGuard {
         emit CollectionDeployed(
             collectionAddress,
             msg.sender,
+            gameId,
             name,
             symbol,
             maxSupply
@@ -93,10 +96,18 @@ contract CollectionFactory is Ownable, ReentrancyGuard {
         return collectionAddress;
     }
 
+    /// @notice Return all collections under a given game
+    function getGameCollections(
+        uint256 gameId
+    ) external view returns (address[] memory) {
+        return gameCollections[gameId];
+    }
     /**
      * @dev Get collections created by a user
      */
-    function getUserCollections(address user) external view returns (address[] memory) {
+    function getUserCollections(
+        address user
+    ) external view returns (address[] memory) {
         return userCollections[user];
     }
 
@@ -140,3 +151,4 @@ contract CollectionFactory is Ownable, ReentrancyGuard {
         return isDeployedCollection[collection];
     }
 }
+//0xf252C445522BA5d345554953B5de7409161771DE
