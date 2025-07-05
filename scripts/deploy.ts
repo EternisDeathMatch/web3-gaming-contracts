@@ -3,9 +3,9 @@ import { ethers, run, network } from "hardhat";
 async function main(): Promise<void> {
   console.log("Deploying CollectionFactory contract...");
 
-  // Get the ContractFactory and Signers
+  // Get signer
   const [deployer] = await ethers.getSigners();
-  console.log("Deploying contracts with the account:", deployer.address);
+  console.log("Deployer address:", deployer.address);
   const balance = await ethers.provider.getBalance(deployer.address);
   console.log(
     "Account balance:",
@@ -13,25 +13,20 @@ async function main(): Promise<void> {
     network.name === "hardhat" ? "ETH (simulated)" : "ETH"
   );
 
-  // Deploy CollectionFactory
-  const deploymentFee = ethers.parseEther("0.001"); // 0.001 ETH deployment fee
-  const feeRecipient = deployer.address; // Use deployer as fee recipient
+  // Prepare deployment parameters
+  const deploymentFee = ethers.parseEther("0.001"); // 0.001 ETH
+  const feeRecipient = deployer.address;
 
-  const CollectionFactory = await ethers.getContractFactory(
-    "CollectionFactory"
-  );
-  const collectionFactory = await CollectionFactory.deploy(
-    deploymentFee,
-    feeRecipient
-  );
+  // Deploy
+  const Factory = await ethers.getContractFactory("CollectionFactory");
+  const collectionFactory = await Factory.deploy(deploymentFee, feeRecipient);
 
-  console.log("Transaction hash:", (await collectionFactory.deployTransaction()).hash);
-  await collectionFactory.deploymentTransaction()?.wait(1);
+  // Log transaction hash and wait for on-chain deployment
+  const tx = collectionFactory.deploymentTransaction();
+  console.log("Transaction hash:", tx!.hash);
+  await collectionFactory.waitForDeployment();
 
-  console.log(
-    "CollectionFactory deployed to:",
-    collectionFactory.target // .address for older versions
-  );
+  console.log("CollectionFactory deployed to:", collectionFactory.target);
   console.log(
     "Deployment fee set to:",
     ethers.formatEther(deploymentFee),
@@ -39,36 +34,34 @@ async function main(): Promise<void> {
   );
   console.log("Fee recipient:", feeRecipient);
 
-  // Optional: verify contract if Etherscan API key is provided
+  // Optional verification
   if (process.env.ETHERSCAN_API_KEY && network.name !== "hardhat") {
-    console.log("Waiting for block confirmations...");
-    await collectionFactory.deploymentTransaction()?.wait(6);
+    console.log("Waiting for confirmations...");
+    await tx!.wait(6);
 
-    console.log("Verifying contract...");
+    console.log("Verifying contract on Etherscan...");
     try {
       await run("verify:verify", {
         address: collectionFactory.target,
         constructorArguments: [deploymentFee, feeRecipient],
       });
-      console.log("Contract verified on Etherscan");
+      console.log("✅ Verification successful");
     } catch (error: any) {
-      console.warn("Verification failed:", error.message || error);
+      console.warn("⚠ Verification error:", error.message || error);
     }
   }
 
-  // Next steps
+  // Final summary
   console.log("\n=== DEPLOYMENT COMPLETE ===");
   console.log("Network:", network.name);
   console.log("Contract Address:", collectionFactory.target);
-  console.log("Transaction Hash:", (await collectionFactory.deployTransaction()).hash);
-  console.log("\n=== NEXT STEPS ===");
+  console.log("Transaction Hash:", tx!.hash);
+  console.log("\nNext steps:");
   console.log(
-    "1. Update FACTORY_ADDRESS in src/hooks/useBlockchainDeploy.ts with:",
+    "1) Update FACTORY_ADDRESS in front-end with:",
     collectionFactory.target
   );
-  console.log(
-    "2. Test the deployment by creating a collection through the admin panel"
-  );
+  console.log("2) Test collection creation via admin panel");
 }
 
 main()
