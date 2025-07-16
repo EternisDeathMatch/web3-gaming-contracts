@@ -1,6 +1,7 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import * as dotenv from "dotenv";
+import "@openzeppelin/hardhat-upgrades";
 
 dotenv.config();
 
@@ -12,7 +13,7 @@ const XDC_RPC_URL = process.env.XDC_RPC_URL || "https://rpc.xinfin.network";
 
 const config: HardhatUserConfig = {
   solidity: {
-    version: "0.8.20",
+    version: "0.8.22",
     settings: {
       optimizer: {
         enabled: true,

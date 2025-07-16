@@ -2,14 +2,14 @@
 pragma solidity ^0.8.20;
 
 import "./GameNFTCollection.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 /**
  * @title CollectionFactory
  * @dev Factory contract for deploying GameNFTCollection contracts
  */
-contract CollectionFactory is Ownable, ReentrancyGuard {
+contract CollectionFactory is OwnableUpgradeable, ReentrancyGuardUpgradeable, UUPSUpgradeable {
     // Deployment fee in wei
     uint256 public deploymentFee;
 
@@ -20,6 +20,8 @@ contract CollectionFactory is Ownable, ReentrancyGuard {
     mapping(address => bool) public isDeployedCollection;
     mapping(address => address[]) public userCollections;
     mapping(uint256 => address[]) public gameCollections;
+    mapping(address => string) public collectionBaseURI;
+    mapping(address => string) public collectionContractURI;
 
     // Array of all deployed collections
     address[] public allCollections;
@@ -33,13 +35,25 @@ contract CollectionFactory is Ownable, ReentrancyGuard {
         string symbol,
         uint256 maxSupply
     );
+    event CollectionBaseURIUpdated(
+        address indexed collection,
+        string baseTokenURI
+    );
+    event CollectionContractURIUpdated(
+        address indexed collection,
+        string contractURI
+    );
     event DeploymentFeeUpdated(uint256 newFee);
     event FeeRecipientUpdated(address newRecipient);
 
-    constructor(uint256 _deploymentFee, address _feeRecipient) {
+    function initialize(uint256 _deploymentFee, address _feeRecipient) public initializer {
+        __Ownable_init(msg.sender);
+        __ReentrancyGuard_init();
+        __UUPSUpgradeable_init();
         deploymentFee = _deploymentFee;
         feeRecipient = _feeRecipient;
     }
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /**
      * @dev Deploy a new GameNFTCollection contract
@@ -50,10 +64,11 @@ contract CollectionFactory is Ownable, ReentrancyGuard {
         string memory symbol,
         string memory description,
         string memory baseTokenURI,
+        string memory contractURI,
         uint256 maxSupply,
         address royaltyRecipient,
-        uint256 royaltyBps
-    ) external payable nonReentrant returns (address) {
+        uint96 royaltyBps
+    ) external payable nonReentrant onlyOwner returns (address) {
         require(msg.value >= deploymentFee, "Insufficient deployment fee");
         require(bytes(name).length > 0, "Name cannot be empty");
         require(bytes(symbol).length > 0, "Symbol cannot be empty");
@@ -65,6 +80,7 @@ contract CollectionFactory is Ownable, ReentrancyGuard {
             symbol,
             description,
             baseTokenURI,
+            contractURI,
             maxSupply,
             msg.sender, // Creator becomes admin
             royaltyRecipient,
@@ -72,7 +88,8 @@ contract CollectionFactory is Ownable, ReentrancyGuard {
         );
 
         address collectionAddress = address(collection);
-
+        collectionBaseURI[collectionAddress] = baseTokenURI;
+        collectionContractURI[collectionAddress] = contractURI;
         // Track the deployed collection
         isDeployedCollection[collectionAddress] = true;
         userCollections[msg.sender].push(collectionAddress);
@@ -92,8 +109,48 @@ contract CollectionFactory is Ownable, ReentrancyGuard {
             symbol,
             maxSupply
         );
-
+        emit CollectionContractURIUpdated(collectionAddress, contractURI);
         return collectionAddress;
+    }
+
+    /// @notice Change the baseTokenURI for an already‐deployed collection
+    function setCollectionBaseURI(
+        address collection,
+        string calldata baseURI
+    ) external {
+        require(isDeployedCollection[collection], "Unknown collection");
+        // only Factory owner OR the collection's ADMIN_ROLE
+        require(
+            msg.sender == owner() ||
+                GameNFTCollection(collection).hasRole(
+                    GameNFTCollection(collection).ADMIN_ROLE(),
+                    msg.sender
+                ),
+            "Not authorized"
+        );
+        collectionBaseURI[collection] = baseURI;
+        GameNFTCollection(collection).setBaseTokenURI(baseURI);
+        emit CollectionBaseURIUpdated(collection, baseURI);
+    }
+
+    /// @notice Change the contractURI for an already‐deployed collection
+    function setCollectionContractURI(
+        address collection,
+        string calldata uri
+    ) external {
+        require(isDeployedCollection[collection], "Unknown collection");
+        // only Factory owner OR the collection's ADMIN_ROLE
+        require(
+            msg.sender == owner() ||
+            GameNFTCollection(collection).hasRole(
+                GameNFTCollection(collection).ADMIN_ROLE(),
+                msg.sender
+            ),
+            "Not authorized"
+        );
+        collectionContractURI[collection] = uri;
+        GameNFTCollection(collection).setContractURI(uri);
+        emit CollectionContractURIUpdated(collection, uri);
     }
 
     /// @notice Return all collections under a given game
@@ -151,4 +208,3 @@ contract CollectionFactory is Ownable, ReentrancyGuard {
         return isDeployedCollection[collection];
     }
 }
-//0xf252C445522BA5d345554953B5de7409161771DE
