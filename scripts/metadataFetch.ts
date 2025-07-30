@@ -4,7 +4,7 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 const RPC_URL = process.env.XDC_RPC_URL!;
-const CONTRACT_ADDRESS = "0x3792717f4cc2642571f55ec2bf2fd75b34607c41";
+const CONTRACT_ADDRESS = "0xB012bf6C53eAc300389cE4458F82CC8B1A29Dc7d";
 
 const abi = [
   "function getCurrentTokenId() view returns (uint256)",
@@ -27,6 +27,8 @@ async function main() {
   for (let tokenId = 0; tokenId < totalMinted; tokenId++) {
     try {
       let uri: string = await contract.tokenURI(tokenId);
+      console.log(`\nToken #${tokenId}`);
+      console.log(`\URI #${uri}`);
 
       // If you’re using ipfs:// URIs, convert them to a public gateway:
       if (uri.startsWith("ipfs://")) {

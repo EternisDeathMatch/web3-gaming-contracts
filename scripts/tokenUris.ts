@@ -5,7 +5,7 @@ dotenv.config();
 
 // Load environment variables from .env file
 const RPC_URL = process.env.XDC_RPC_URL;
-const CONTRACT_ADDRESS = "0x4999c4e3ef1e275640cfb50a34a64dc1184eda06";
+const CONTRACT_ADDRESS = "0x38025Bc3f3f860C88D639273A0f9EffB2E35f1F9";
 
 if (!RPC_URL || !CONTRACT_ADDRESS) {
   console.error("Please set RPC_URL and CONTRACT_ADDRESS in your .env file");

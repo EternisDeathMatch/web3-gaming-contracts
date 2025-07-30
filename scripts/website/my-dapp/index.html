@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Deploy & Upgrade UUPS Proxy</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      body {
+        font-family: monospace;
+        background: #181818;
+        color: #ddd;
+        padding: 32px;
+      }
+      input,
+      button,
+      select {
+        font-family: inherit;
+        margin: 4px 0;
+        padding: 8px;
+        border-radius: 7px;
+        border: 1px solid #444;
+      }
+      input,
+      select {
+        background: #212121;
+        color: #ccc;
+        width: 100%;
+      }
+      button {
+        background: #212121;
+        color: #fff;
+        cursor: pointer;
+      }
+      button:disabled {
+        background: #444;
+        cursor: not-allowed;
+      }
+      .success {
+        color: #2ecc40;
+      }
+      .error {
+        color: #ff4136;
+      }
+      .instructions {
+        background: #222;
+        padding: 12px 20px;
+        margin-bottom: 18px;
+        border-radius: 12px;
+      }
+      .field {
+        margin-bottom: 16px;
+      }
+      .small {
+        color: #aaa;
+        font-size: 13px;
+      }
+      #copyBtn {
+        margin-top: 10px;
+      }
+      .section {
+        margin-bottom: 32px;
+        border-radius: 12px;
+        border: 1px solid #222;
+      }
+      .section-header {
+        padding: 16px 20px;
+        background: #222;
+        border-radius: 12px 12px 0 0;
+        cursor: pointer;
+        user-select: none;
+        display: flex;
+        align-items: center;
+      }
+      .section-title {
+        flex: 1;
+        font-size: 21px;
+        font-weight: bold;
+      }
+      .section-content {
+        padding: 18px 20px;
+        background: #181818;
+        border-radius: 0 0 12px 12px;
+      }
+      .upgrade-warning {
+        color: orange;
+      }
+      .arrow {
+        margin-right: 10px;
+        transition: transform 0.2s;
+        font-size: 18px;
+        display: inline-block;
+      }
+      .collapsed .section-content {
+        display: none;
+      }
+      .collapsed .arrow {
+        transform: rotate(0deg);
+      }
+      .arrow {
+        transform: rotate(90deg);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Deploy Section -->
+    <div class="section" id="deploySection">
+      <div class="section-header">
+        <span class="arrow">&#9654;</span>
+        <span class="section-title">Deploy CollectionFactory</span>
+      </div>
+      <div class="section-content">
+        <div class="instructions">
+          <b>Deploy new CollectionFactory (Upgradeable or Non-upgradeable):</b
+          ><br />
+          1. Connect MetaMask.<br />
+          2. Enter fee and recipient.<br />
+          3. Choose mode and click Deploy.<br />
+          <span class="small"
+            >If deploying as proxy, you can later upgrade it below.</span
+          >
+        </div>
+        <div class="field">
+          <label
+            >Deployment Fee (ETH):<br />
+            <input
+              type="number"
+              step="0.0001"
+              min="0"
+              id="deploymentFee"
+              value="0.001"
+            />
+          </label>
+        </div>
+        <div class="field">
+          <label
+            >Fee Recipient Address:<br />
+            <input type="text" id="feeRecipient" placeholder="0x..." />
+          </label>
+        </div>
+        <div class="field">
+          <label>
+            <input type="checkbox" id="deployProxy" checked /> Deploy as
+            Upgradeable (UUPS Proxy)
+          </label>
+        </div>
+        <div class="field">
+          <button id="deployBtn">Deploy Contract</button>
+        </div>
+        <pre id="output"></pre>
+        <button id="copyBtn" style="display: none">Copy Address</button>
+      </div>
+    </div>
+
+    <!-- Upgrade Section -->
+    <div class="section collapsed" id="upgradeSection">
+      <div class="section-header">
+        <span class="arrow">&#9654;</span>
+        <span class="section-title">Upgrade Proxy</span>
+      </div>
+      <div class="section-content">
+        <div class="instructions">
+          <b>Upgrade Proxy Implementation:</b><br />
+          Only contract owner can perform this.<br />
+          Enter proxy address and upgrade.<br />
+          <span class="upgrade-warning"
+            >Warning: This will deploy a new implementation and upgrade your
+            proxy. Make sure you intend to upgrade!</span
+          >
+        </div>
+        <div class="field">
+          <label
+            >Proxy Contract Address:<br />
+            <input type="text" id="upgradeProxyAddress" placeholder="0x..." />
+          </label>
+        </div>
+        <div class="field">
+          <label>
+            <span>Upgrade To Contract Name:</span>
+            <input
+              type="text"
+              id="upgradeContractType"
+              placeholder="CollectionFactoryV2"
+            />
+            <span class="small"
+              >Enter contract name matching your JSON artifact (without
+              .json)</span
+            >
+          </label>
+        </div>
+        <div class="field">
+          <label>
+            Initializer Function Name (optional):<br />
+            <input type="text" id="initFnName" placeholder="initializeV2" />
+          </label>
+        </div>
+        <div class="field">
+          <label>
+            Initializer Arguments (comma-separated):<br />
+            <input type="text" id="initFnArgs" placeholder="1.0.0,42,true" />
+          </label>
+        </div>
+
+        <div class="field">
+          <button id="deployAndUpgradeBtn">Deploy & Upgrade</button>
+        </div>
+        <pre id="upgradeOutput"></pre>
+      </div>
+    </div>
+
+    <!-- Test Proxy Section -->
+    <div class="section collapsed" id="testSection">
+      <div class="section-header">
+        <span class="arrow">&#9654;</span>
+        <span class="section-title">Test Proxy</span>
+      </div>
+      <div class="section-content">
+        <div class="instructions">
+          <b>Interact with Proxy:</b><br />
+          - Get current implementation address.<br />
+          - Call any function by ABI signature and arguments.<br />
+        </div>
+        <div class="field">
+          <label
+            >Proxy Address:<br />
+            <input type="text" id="testProxyAddress" placeholder="0x..." />
+          </label>
+        </div>
+        <div class="field">
+          <button id="getImplBtn">Get Implementation</button>
+          <span id="currentImplResult" class="small"></span>
+        </div>
+        <hr style="border: 1px solid #222" />
+        <div class="field">
+          <label
+            >Function Signature:<br />
+            <input
+              type="text"
+              id="fnSignature"
+              placeholder="functionName(type1,type2,...)"
+            />
+          </label>
+        </div>
+        <div class="field">
+          <label
+            >Arguments (comma-separated):<br />
+            <input type="text" id="fnArgs" placeholder="arg1,arg2,..." />
+          </label>
+        </div>
+        <div class="field">
+          <label>
+            <input type="checkbox" id="isWriteTx" />
+            Call as <b>Write (transaction)</b> (uncheck for Read/call)
+          </label>
+        </div>
+        <div class="field">
+          <button id="callFnBtn">Call Function</button>
+        </div>
+        <pre id="fnResult"></pre>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+    <script>
+      // Collapsible section logic with arrow rotation
+      document.querySelectorAll(".section-header").forEach((header) => {
+        header.addEventListener("click", function () {
+          const section = this.parentElement;
+          section.classList.toggle("collapsed");
+          const arrow = this.querySelector(".arrow");
+          if (section.classList.contains("collapsed")) {
+            arrow.style.transform = "rotate(0deg)";
+          } else {
+            arrow.style.transform = "rotate(90deg)";
+          }
+        });
+      });
+
+      // Default states (on reload)
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("deploySection").classList.remove("collapsed");
+        document.getElementById("upgradeSection").classList.add("collapsed");
+        document.getElementById("testSection").classList.add("collapsed");
+      });
+    </script>
+  </body>
+</html>

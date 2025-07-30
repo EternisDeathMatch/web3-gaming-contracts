@@ -2,14 +2,22 @@
 pragma solidity ^0.8.20;
 
 import "./GameNFTCollection.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+// import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 /**
  * @title CollectionFactory
  * @dev Factory contract for deploying GameNFTCollection contracts
  */
-contract CollectionFactory is OwnableUpgradeable, ReentrancyGuardUpgradeable, UUPSUpgradeable {
+contract CollectionFactory is
+    AccessControlUpgradeable,
+    ReentrancyGuardUpgradeable,
+    UUPSUpgradeable
+{
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+
     // Deployment fee in wei
     uint256 public deploymentFee;
 
@@ -46,14 +54,32 @@ contract CollectionFactory is OwnableUpgradeable, ReentrancyGuardUpgradeable, UU
     event DeploymentFeeUpdated(uint256 newFee);
     event FeeRecipientUpdated(address newRecipient);
 
-    function initialize(uint256 _deploymentFee, address _feeRecipient) public initializer {
-        __Ownable_init(msg.sender);
+    function initialize(
+        uint256 _deploymentFee,
+        address _feeRecipient
+    ) public initializer {
+        __AccessControl_init();
         __ReentrancyGuard_init();
         __UUPSUpgradeable_init();
         deploymentFee = _deploymentFee;
         feeRecipient = _feeRecipient;
+        // Grant roles to deployer
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(ADMIN_ROLE, msg.sender);
     }
-    function _authorizeUpgrade(address) internal override onlyOwner {}
+
+    function _authorizeUpgrade(
+        address
+    ) internal override onlyRole(ADMIN_ROLE) {}
+    function addAdmin(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        grantRole(ADMIN_ROLE, account);
+    }
+
+    function removeAdmin(
+        address account
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        revokeRole(ADMIN_ROLE, account);
+    }
 
     /**
      * @dev Deploy a new GameNFTCollection contract
@@ -68,7 +94,7 @@ contract CollectionFactory is OwnableUpgradeable, ReentrancyGuardUpgradeable, UU
         uint256 maxSupply,
         address royaltyRecipient,
         uint96 royaltyBps
-    ) external payable nonReentrant onlyOwner returns (address) {
+    ) external payable nonReentrant onlyRole(ADMIN_ROLE) returns (address) {
         require(msg.value >= deploymentFee, "Insufficient deployment fee");
         require(bytes(name).length > 0, "Name cannot be empty");
         require(bytes(symbol).length > 0, "Symbol cannot be empty");
@@ -121,13 +147,14 @@ contract CollectionFactory is OwnableUpgradeable, ReentrancyGuardUpgradeable, UU
         require(isDeployedCollection[collection], "Unknown collection");
         // only Factory owner OR the collection's ADMIN_ROLE
         require(
-            msg.sender == owner() ||
+            hasRole(DEFAULT_ADMIN_ROLE, msg.sender) ||
                 GameNFTCollection(collection).hasRole(
                     GameNFTCollection(collection).ADMIN_ROLE(),
                     msg.sender
                 ),
             "Not authorized"
         );
+
         collectionBaseURI[collection] = baseURI;
         GameNFTCollection(collection).setBaseTokenURI(baseURI);
         emit CollectionBaseURIUpdated(collection, baseURI);
@@ -141,11 +168,11 @@ contract CollectionFactory is OwnableUpgradeable, ReentrancyGuardUpgradeable, UU
         require(isDeployedCollection[collection], "Unknown collection");
         // only Factory owner OR the collection's ADMIN_ROLE
         require(
-            msg.sender == owner() ||
-            GameNFTCollection(collection).hasRole(
-                GameNFTCollection(collection).ADMIN_ROLE(),
-                msg.sender
-            ),
+            hasRole(DEFAULT_ADMIN_ROLE, msg.sender) ||
+                GameNFTCollection(collection).hasRole(
+                    GameNFTCollection(collection).ADMIN_ROLE(),
+                    msg.sender
+                ),
             "Not authorized"
         );
         collectionContractURI[collection] = uri;
@@ -178,7 +205,9 @@ contract CollectionFactory is OwnableUpgradeable, ReentrancyGuardUpgradeable, UU
     /**
      * @dev Update deployment fee (owner only)
      */
-    function updateDeploymentFee(uint256 _newFee) external onlyOwner {
+    function updateDeploymentFee(
+        uint256 _newFee
+    ) external onlyRole(ADMIN_ROLE) {
         deploymentFee = _newFee;
         emit DeploymentFeeUpdated(_newFee);
     }
@@ -186,7 +215,9 @@ contract CollectionFactory is OwnableUpgradeable, ReentrancyGuardUpgradeable, UU
     /**
      * @dev Update fee recipient (owner only)
      */
-    function updateFeeRecipient(address _newRecipient) external onlyOwner {
+    function updateFeeRecipient(
+        address _newRecipient
+    ) external onlyRole(ADMIN_ROLE) {
         require(_newRecipient != address(0), "Invalid fee recipient");
         feeRecipient = _newRecipient;
         emit FeeRecipientUpdated(_newRecipient);
@@ -195,10 +226,10 @@ contract CollectionFactory is OwnableUpgradeable, ReentrancyGuardUpgradeable, UU
     /**
      * @dev Withdraw accumulated fees (owner only)
      */
-    function withdrawFees() external onlyOwner {
+    function withdrawFees() external onlyRole(ADMIN_ROLE) {
         uint256 balance = address(this).balance;
         require(balance > 0, "No fees to withdraw");
-        payable(owner()).transfer(balance);
+        payable(feeRecipient).transfer(balance);
     }
 
     /**
