@@ -16,7 +16,7 @@ export async function getImplementationAddress(proxyAddr: string, currentImplRes
   }
 }
 
-export async function callProxyFunction({
+export async function callProxyFunction({ 
   proxyAddr,
   fnSig,
   fnArgs,
