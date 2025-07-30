@@ -199,7 +199,6 @@
             <input type="text" id="initFnArgs" placeholder="1.0.0,42,true" />
           </label>
         </div>
-
         <div class="field">
           <button id="deployAndUpgradeBtn">Deploy & Upgrade</button>
         </div>
@@ -259,7 +258,7 @@
       </div>
     </div>
 
-    <script type="module" src="/src/main.ts"></script>
+    <script type="module" src="/src/index.ts"></script>
     <script>
       // Collapsible section logic with arrow rotation
       document.querySelectorAll(".section-header").forEach((header) => {
@@ -270,7 +269,7 @@
           if (section.classList.contains("collapsed")) {
             arrow.style.transform = "rotate(0deg)";
           } else {
-            arrow.style.transform = "rotate(90deg)";
+            arrow.style.transform = "rotate(90deg)"; 
           }
         });
       });
