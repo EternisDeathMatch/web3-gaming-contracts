@@ -6,7 +6,8 @@ import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+// import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/common/ERC2981Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
@@ -17,9 +18,11 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 contract GameMarketplace is
     ReentrancyGuardUpgradeable,
     PausableUpgradeable,
-    OwnableUpgradeable,
-    UUPSUpgradeable
+    UUPSUpgradeable,
+    AccessControlUpgradeable
 {
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+
     struct Listing {
         address seller;
         address nftContract;
@@ -70,14 +73,34 @@ contract GameMarketplace is
     function initialize(address _feeRecipient) public initializer {
         __ReentrancyGuard_init();
         __Pausable_init();
-        __Ownable_init(msg.sender);
+        __AccessControl_init();
         __UUPSUpgradeable_init();
-        
+
         platformFeeBps = 250;
         feeRecipient = _feeRecipient;
         supportedTokens[address(0)] = true;
+
+        // Grant ADMIN_ROLE to deployer (msg.sender)
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(ADMIN_ROLE, msg.sender);
     }
-    function _authorizeUpgrade(address) internal override onlyOwner {}
+
+    function addAdmin(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        grantRole(ADMIN_ROLE, account);
+    }
+
+    function removeAdmin(
+        address account
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        revokeRole(ADMIN_ROLE, account);
+    }
+
+    modifier onlyAdmin() {
+        require(hasRole(ADMIN_ROLE, msg.sender), "Not admin");
+        _;
+    }
+
+    function _authorizeUpgrade(address) internal override onlyAdmin {}
 
     /// @dev Internal helper for both single‐ and batch‐listing
     function _createListing(
@@ -271,11 +294,31 @@ contract GameMarketplace is
 
     /// @notice Cancel an active listing
     function cancelListing(bytes32 listingId) external nonReentrant {
+        _cancelListingInternal(listingId, msg.sender);
+    }
+
+    function _cancelListingInternal(
+        bytes32 listingId,
+        address sender
+    ) internal {
         Listing storage l = listings[listingId];
         require(l.active, "Not active");
-        require(msg.sender == l.seller, "Not seller");
+        require(sender == l.seller, "Not seller");
         _removeListing(listingId);
         emit ListingCancelled(listingId);
+    }
+
+    /// @notice Batch cancel multiple active listings
+    function batchCancelListings(
+        address nftContract,
+        uint256[] calldata tokenIds
+    ) external nonReentrant {
+        require(tokenIds.length > 0, "No tokenIds provided");
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            bytes32 listingId = activeListing[nftContract][tokenIds[i]];
+            require(listingId != bytes32(0), "Listing not found");
+            _cancelListingInternal(listingId, msg.sender);
+        }
     }
 
     /// @dev Internal removal of listing from active index
@@ -351,34 +394,34 @@ contract GameMarketplace is
     }
 
     /// @notice Update platform fee
-    function updatePlatformFee(uint256 newFeeBps) external onlyOwner {
+    function updatePlatformFee(uint256 newFeeBps) external onlyAdmin {
         require(newFeeBps <= 1000, "Max 10% fee");
         platformFeeBps = newFeeBps;
         emit PlatformFeeUpdated(newFeeBps);
     }
 
     /// @notice Update fee recipient
-    function updateFeeRecipient(address newRecipient) external onlyOwner {
+    function updateFeeRecipient(address newRecipient) external onlyAdmin {
         require(newRecipient != address(0), "Invalid recipient");
         feeRecipient = newRecipient;
     }
-    function addSupportedToken(address token) external onlyOwner {
+    function addSupportedToken(address token) external onlyAdmin {
         supportedTokens[token] = true;
     }
 
     /** @dev Remove supported payment token (owner only) */
-    function removeSupportedToken(address token) external onlyOwner {
+    function removeSupportedToken(address token) external onlyAdmin {
         require(token != address(0), "Cannot remove native token support");
         supportedTokens[token] = false;
     }
 
     /** @dev Pause marketplace (owner only) */
-    function pause() external onlyOwner {
+    function pause() external onlyAdmin {
         _pause();
     }
 
     /** @dev Unpause marketplace (owner only) */
-    function unpause() external onlyOwner {
+    function unpause() external onlyAdmin {
         _unpause();
     }
 }
