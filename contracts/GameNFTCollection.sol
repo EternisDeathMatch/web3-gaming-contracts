@@ -133,39 +133,50 @@ contract GameNFTCollection is
         _contractURI = newURI;
     }
 
+    /**
+     * @dev Efficient batch mint: deterministic URI using baseTokenURI + tokenId + ".json"
+     */
+    function batchMintBase(
+        address to,
+        uint256 count
+    ) public onlyRole(MINTER_ROLE) whenNotPaused nonReentrant {
+        require(to != address(0), "Cannot mint to zero address");
+        require(count > 0, "Must mint at least one token");
+        require(
+            _tokenIdCounter + count <= maxSupply,
+            "Batch mint would exceed max supply"
+        );
+
+        uint256[] memory tokenIds = new uint256[](count);
+
+        for (uint256 i = 0; i < count; i++) {
+            uint256 tokenId = _tokenIdCounter;
+            _tokenIdCounter += 1;
+
+            _safeMint(to, tokenId);
+
+            // Construct and store deterministic URI
+            string memory uri = string(
+                abi.encodePacked(
+                    baseTokenURI,
+                    Strings.toString(tokenId),
+                    ".json"
+                )
+            );
+            _tokenURIs[tokenId] = uri;
+
+            tokenIds[i] = tokenId;
+        }
+
+        emit BatchMinted(to, tokenIds);
+    }
+
     /// @notice Allows ADMIN_ROLE to update the on-chain base URI for tokenURI()
     function setBaseTokenURI(
         string calldata newBaseURI
     ) external onlyRole(ADMIN_ROLE) {
         baseTokenURI = newBaseURI;
         emit BaseURIUpdated(newBaseURI);
-    }
-    /**
-     * @dev Batch mint multiple NFTs to specified address
-     */
-    function batchMint(
-        address to,
-        string[] memory tokenURIs
-    ) public onlyRole(MINTER_ROLE) whenNotPaused nonReentrant {
-        require(to != address(0), "Cannot mint to zero address");
-        require(tokenURIs.length > 0, "Must mint at least one token");
-        require(
-            _tokenIdCounter + tokenURIs.length <= maxSupply,
-            "Batch mint would exceed max supply"
-        );
-
-        uint256[] memory tokenIds = new uint256[](tokenURIs.length);
-
-        for (uint256 i = 0; i < tokenURIs.length; i++) {
-            uint256 tokenId = _tokenIdCounter;
-            _tokenIdCounter += 1;
-
-            _safeMint(to, tokenId);
-            _tokenURIs[tokenId] = tokenURIs[i];
-            tokenIds[i] = tokenId;
-        }
-
-        emit BatchMinted(to, tokenIds);
     }
 
     /**
@@ -246,11 +257,30 @@ contract GameNFTCollection is
         delete _tokenURIs[tokenId];
     }
 
-    // function tokenURI(
-    //     uint256 tokenId
-    // ) public view override(ERC721, ERC721URIStorage) returns (string memory) {
-    //     return super.tokenURI(tokenId);
-    // }
+    function updateTokenURI(
+        uint256 tokenId,
+        string memory newURI
+    ) public onlyRole(ADMIN_ROLE) {
+        require(
+            ownerOf(tokenId) != address(0),
+            "ERC721: URI set of nonexistent token"
+        );
+        _tokenURIs[tokenId] = newURI;
+    }
+
+    function batchUpdateTokenURIs(
+        uint256[] calldata tokenIds,
+        string[] calldata newURIs
+    ) public onlyRole(ADMIN_ROLE) {
+        require(tokenIds.length == newURIs.length, "Mismatched lengths");
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            require(
+                ownerOf(tokenIds[i]) != address(0),
+                "ERC721: URI set of nonexistent token"
+            );
+            _tokenURIs[tokenIds[i]] = newURIs[i];
+        }
+    }
 
     function supportsInterface(
         bytes4 interfaceId
