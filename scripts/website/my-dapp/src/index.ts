@@ -1,4 +1,5 @@
 import { ethers } from "ethers";
+import { deployBatchSender } from "./deployBatchSender";
 import { deployContract } from "./deploy";
 import { upgradeContract } from "./upgrade";
 import { getImplementationAddress, callProxyFunction } from "./testProxy";
@@ -159,4 +160,29 @@ callMarketplaceFnBtn.onclick = async function () {
     isWrite: marketplaceIsWriteTx.checked,
     fnResult: marketplaceFnResult,
   });
+};
+
+// --- Batch Sender Section ---
+const deploySenderBtn = document.getElementById("deploySenderBtn") as HTMLButtonElement;
+const senderMaxBatchInput = document.getElementById("senderMaxBatch") as HTMLInputElement;
+const senderOwnerInput = document.getElementById("senderOwner") as HTMLInputElement; // optional
+const senderOut = document.getElementById("deploySenderOutput") as HTMLElement;
+const copySenderBtn = document.getElementById("copySenderBtn") as HTMLButtonElement;
+
+deploySenderBtn.onclick = async function () {
+  await deployBatchSender({
+    maxBatch: senderMaxBatchInput.value.trim() || "100",
+    initialOwner: senderOwnerInput.value.trim() as `0x${string}` | undefined,
+    out: senderOut,
+    copyBtn: copySenderBtn,
+  });
+};
+
+copySenderBtn.onclick = function () {
+  const addr = (window as any).batchSenderDeployedAddress;
+  if (addr) {
+    navigator.clipboard.writeText(addr);
+    copySenderBtn.innerText = "Copied!";
+    setTimeout(() => (copySenderBtn.innerText = "Copy Address"), 1200);
+  }
 };

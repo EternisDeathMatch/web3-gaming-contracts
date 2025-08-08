@@ -439,6 +439,41 @@
       </div>
     </div>
 
+    <!-- Deploy NFTBatchSender Section -->
+    <div class="section collapsed" id="deploySenderSection">
+      <div class="section-header">
+        <span class="arrow">&#9654;</span>
+        <span class="section-title"
+          >Deploy NFTBatchSender (non-upgradeable)</span
+        >
+      </div>
+      <div class="section-content">
+        <div class="instructions">
+          <b>Deploy the batch transfer helper:</b><br />
+          - Set max batch size (sane default 100)<br />
+          - (Optional) Set initial owner (multisig). If empty, deployer becomes
+          owner.
+        </div>
+        <div class="field">
+          <label
+            >Max Batch Size:<br />
+            <input type="number" min="1" id="senderMaxBatch" value="100" />
+          </label>
+        </div>
+        <div class="field">
+          <label
+            >Initial Owner (optional):<br />
+            <input type="text" id="senderOwner" placeholder="0xMultisig..." />
+          </label>
+        </div>
+        <div class="field">
+          <button id="deploySenderBtn">Deploy NFTBatchSender</button>
+        </div>
+        <pre id="deploySenderOutput"></pre>
+        <button id="copySenderBtn" style="display: none">Copy Address</button>
+      </div>
+    </div>
+
     <script type="module" src="/src/index.ts"></script>
     <script>
       // Collapsible section logic with arrow rotation
