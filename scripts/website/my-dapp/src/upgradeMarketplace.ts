@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import GameMarketplaceArtifact from "./GameMarketplace.json";
+import GameMarketplaceArtifact from "./GameMarketplaceV2.json";
 import ERC1967ProxyArtifact from "./ERC1967Proxy.json";
 import { showError, showSuccess } from "./ui";
 
