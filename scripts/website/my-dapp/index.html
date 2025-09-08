@@ -5,497 +5,922 @@
     <title>Deploy & Upgrade UUPS Proxy</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
+      :root {
+        --bg: #0f1115;
+        --panel: #161a22;
+        --panel-2: #1b2130;
+        --ink: #e6e8ee;
+        --muted: #9aa3b2;
+        --accent: #5b9cff;
+        --accent-2: #3d7cff;
+        --success: #2ecc40;
+        --error: #ff4136;
+        --warn: #ffb020;
+        --border: #232a3a;
+        --shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+        --radius: 14px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
       body {
-        font-family: monospace;
-        background: #181818;
-        color: #ddd;
-        padding: 32px;
+        height: 100%;
       }
-      input,
-      button,
-      select {
-        font-family: inherit;
-        margin: 4px 0;
-        padding: 8px;
-        border-radius: 7px;
-        border: 1px solid #444;
+      html {
+        scroll-behavior: smooth;
       }
-      input,
-      select {
-        background: #212121;
-        color: #ccc;
-        width: 100%;
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+          "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji",
+          "Segoe UI Emoji";
+        background: radial-gradient(
+          1200px 800px at 20% -10%,
+          #182035 0%,
+          var(--bg) 40%
+        );
+        color: var(--ink);
       }
-      button {
-        background: #212121;
-        color: #fff;
-        cursor: pointer;
+
+      /* Layout */
+      .app {
+        display: grid;
+        grid-template-columns: 260px 1fr;
+        gap: 18px;
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 18px;
       }
-      button:disabled {
-        background: #444;
-        cursor: not-allowed;
+      @media (max-width: 980px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+        .sidebar {
+          position: static;
+          top: auto;
+        }
       }
-      .success {
-        color: #2ecc40;
+
+      /* Top bar */
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 30;
+        background: linear-gradient(
+          180deg,
+          rgba(15, 17, 21, 0.9) 0%,
+          rgba(15, 17, 21, 0.55) 100%
+        );
+        backdrop-filter: blur(6px);
+        border-bottom: 1px solid var(--border);
       }
-      .error {
-        color: #ff4136;
+      .topbar-inner {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 10px 18px;
       }
-      .instructions {
-        background: #222;
-        padding: 12px 20px;
-        margin-bottom: 18px;
-        border-radius: 12px;
+      .badge {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 6px 10px;
+        color: var(--muted);
+        font-size: 12px;
       }
-      .field {
-        margin-bottom: 16px;
+      .badge strong {
+        color: var(--ink);
       }
-      .small {
-        color: #aaa;
+
+      /* Sidebar */
+      .sidebar {
+        position: sticky;
+        top: 64px;
+        height: calc(100vh - 80px);
+        overflow: auto;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 14px;
+      }
+      .nav-title {
         font-size: 13px;
+        color: var(--muted);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin: 8px 8px 10px;
       }
-      #copyBtn {
-        margin-top: 10px;
+      .nav {
+        list-style: none;
+        margin: 0;
+        padding: 0;
       }
+      .nav a {
+        display: block;
+        text-decoration: none;
+        color: var(--ink);
+        padding: 10px 12px;
+        margin: 4px 2px;
+        border-radius: 10px;
+        font-size: 14px;
+        border: 1px solid transparent;
+      }
+      .nav a:hover {
+        background: var(--panel-2);
+        border-color: var(--border);
+      }
+      .nav a.active {
+        background: rgba(91, 156, 255, 0.12);
+        border-color: rgba(91, 156, 255, 0.4);
+        color: #cfe1ff;
+      }
+
+      /* Content */
+      .content {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
       .section {
-        margin-bottom: 32px;
-        border-radius: 12px;
-        border: 1px solid #222;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
       }
       .section-header {
         padding: 16px 20px;
-        background: #222;
-        border-radius: 12px 12px 0 0;
         cursor: pointer;
         user-select: none;
-        display: flex;
+        display: grid;
+        grid-template-columns: 24px 1fr auto;
+        gap: 12px;
         align-items: center;
+        background: var(--panel-2);
+        border-radius: var(--radius) var(--radius) 0 0;
       }
       .section-title {
-        flex: 1;
-        font-size: 21px;
-        font-weight: bold;
+        font-size: 18px;
+        font-weight: 700;
       }
-      .section-content {
-        padding: 18px 20px;
-        background: #181818;
-        border-radius: 0 0 12px 12px;
-      }
-      .upgrade-warning {
-        color: orange;
+      .section-sub {
+        font-size: 13px;
+        color: var(--muted);
       }
       .arrow {
-        margin-right: 10px;
+        transform: rotate(90deg);
         transition: transform 0.2s;
-        font-size: 18px;
-        display: inline-block;
-      }
-      .collapsed .section-content {
-        display: none;
+        opacity: 0.9;
       }
       .collapsed .arrow {
         transform: rotate(0deg);
       }
-      .arrow {
-        transform: rotate(90deg);
+      .section-content {
+        padding: 18px 20px;
+      }
+      .collapsed .section-content {
+        display: none;
+      }
+
+      .instructions {
+        background: #11161f;
+        border: 1px dashed var(--border);
+        color: #c6d0e5;
+        padding: 12px 14px;
+        margin-bottom: 16px;
+        border-radius: 12px;
+      }
+      .upgrade-warning {
+        color: var(--warn);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+      @media (max-width: 860px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .field label {
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      input,
+      button,
+      select {
+        font: inherit;
+        background: #0f141d;
+        color: #dfe6f6;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid #243049;
+      }
+      input::placeholder {
+        color: #6e7b91;
+      }
+      select {
+        cursor: pointer;
+      }
+      button {
+        background: linear-gradient(
+          180deg,
+          var(--accent) 0%,
+          var(--accent-2) 100%
+        );
+        border: 0;
+        color: white;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 0.04s ease;
+        box-shadow: 0 6px 18px rgba(91, 156, 255, 0.25);
+      }
+      button:hover {
+        filter: brightness(1.05);
+      }
+      button:active {
+        transform: translateY(1px);
+      }
+      button.secondary {
+        background: #1f2a40;
+        border: 1px solid #2b3a57;
+        box-shadow: none;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      pre {
+        background: #0e131c;
+        color: #bcd1ff;
+        border: 1px solid #22304e;
+        padding: 12px;
+        border-radius: 10px;
+        overflow: auto;
+        max-height: 240px;
+      }
+
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .spacer {
+        flex: 1;
+      }
+      .chip {
+        padding: 6px 8px;
+        font-size: 12px;
+        border-radius: 999px;
+        background: #121a27;
+        border: 1px solid #22304e;
+        color: #cbd7f1;
+      }
+
+      /* Floating back-to-top */
+      #toTop {
+        position: fixed;
+        right: 18px;
+        bottom: 18px;
+        z-index: 50;
+        display: none;
+      }
+      #toTop.show {
+        display: inline-block;
+      }
+
+      /* Small helpers */
+      .success {
+        color: var(--success);
+      }
+      .error {
+        color: var(--error);
+      }
+      .small {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      hr {
+        border: 1px solid var(--border);
       }
     </style>
   </head>
   <body>
-    <!-- Deploy Section -->
-    <div class="section" id="deploySection">
-      <div class="section-header">
-        <span class="arrow">&#9654;</span>
-        <span class="section-title">Deploy CollectionFactory</span>
-      </div>
-      <div class="section-content">
-        <div class="instructions">
-          <b>Deploy new CollectionFactory (Upgradeable or Non-upgradeable):</b
-          ><br />
-          1. Connect MetaMask.<br />
-          2. Enter fee and recipient.<br />
-          3. Choose mode and click Deploy.<br />
-          <span class="small"
-            >If deploying as proxy, you can later upgrade it below.</span
-          >
+    <!-- Top status bar -->
+    <div class="topbar">
+      <div class="topbar-inner">
+        <div class="row">
+          <span class="chip">UUPS Toolkit</span>
+          <span class="small">Deploy • Upgrade • Test</span>
         </div>
-        <div class="field">
-          <label
-            >Deployment Fee (ETH):<br />
-            <input
-              type="number"
-              step="0.0001"
-              min="0"
-              id="deploymentFee"
-              value="0.001"
-            />
-          </label>
+        <div class="row">
+          <span class="badge">Account: <strong id="acctShort">—</strong></span>
+          <span class="badge">Network: <strong id="netName">—</strong></span>
+          <span class="badge">ChainId: <strong id="chainId">—</strong></span>
+          <button id="connectBtn" class="secondary">Connect Wallet</button>
         </div>
-        <div class="field">
-          <label
-            >Fee Recipient Address:<br />
-            <input type="text" id="feeRecipient" placeholder="0x..." />
-          </label>
-        </div>
-        <div class="field">
-          <label>
-            <input type="checkbox" id="deployProxy" checked /> Deploy as
-            Upgradeable (UUPS Proxy)
-          </label>
-        </div>
-        <div class="field">
-          <button id="deployBtn">Deploy Contract</button>
-        </div>
-        <pre id="output"></pre>
-        <button id="copyBtn" style="display: none">Copy Address</button>
       </div>
     </div>
 
-    <!-- Upgrade Section -->
-    <div class="section collapsed" id="upgradeSection">
-      <div class="section-header">
-        <span class="arrow">&#9654;</span>
-        <span class="section-title">Upgrade Proxy</span>
-      </div>
-      <div class="section-content">
-        <div class="instructions">
-          <b>Upgrade Proxy Implementation:</b><br />
-          Only contract owner can perform this.<br />
-          Enter proxy address and upgrade.<br />
-          <span class="upgrade-warning"
-            >Warning: This will deploy a new implementation and upgrade your
-            proxy. Make sure you intend to upgrade!</span
-          >
+    <div class="app">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="nav-title">Navigation</div>
+        <ul class="nav" id="scrollspy">
+          <li><a href="#deploySection">Deploy CollectionFactory</a></li>
+          <li><a href="#upgradeSection">Upgrade Proxy</a></li>
+          <li><a href="#testSection">Test Proxy</a></li>
+          <li>
+            <a href="#deployMarketplaceSection">Deploy GameMarketplace</a>
+          </li>
+          <li>
+            <a href="#upgradeMarketplaceSection">Upgrade Marketplace Proxy</a>
+          </li>
+          <li><a href="#testMarketplaceSection">Test Marketplace Proxy</a></li>
+          <li><a href="#deployRegistrySection">Deploy ReferralRegistry</a></li>
+          <li><a href="#deployEngineSection">Deploy IncentiveEngine</a></li>
+          <li><a href="#wireIncentivesSection">Wire Incentives</a></li>
+        </ul>
+      </aside>
+
+      <!-- Main content (keeps your original IDs) -->
+      <main class="content">
+        <!-- Deploy Section -->
+        <div class="section" id="deploySection">
+          <div class="section-header">
+            <div class="arrow">▶</div>
+            <div>
+              <div class="section-title">Deploy CollectionFactory</div>
+              <div class="section-sub">Upgradeable or non-upgradeable</div>
+            </div>
+            <div class="row">
+              <span class="small">Step 1</span>
+            </div>
+          </div>
+          <div class="section-content">
+            <div class="instructions">
+              <b>Deploy new CollectionFactory:</b><br />
+              1) Connect MetaMask → 2) Enter fee & recipient → 3) Choose mode →
+              4) Deploy.
+              <div class="small">
+                If deploying as proxy, you can later upgrade it below.
+              </div>
+            </div>
+            <div class="grid">
+              <div class="field">
+                <label>Deployment Fee (ETH)</label>
+                <input
+                  type="number"
+                  step="0.0001"
+                  min="0"
+                  id="deploymentFee"
+                  value="0.001"
+                />
+              </div>
+              <div class="field">
+                <label>Fee Recipient Address</label>
+                <input type="text" id="feeRecipient" placeholder="0x..." />
+              </div>
+              <div class="field">
+                <label
+                  ><input type="checkbox" id="deployProxy" checked /> Deploy as
+                  Upgradeable (UUPS)</label
+                >
+              </div>
+              <div class="field">
+                <label>&nbsp;</label>
+                <button id="deployBtn">Deploy Contract</button>
+              </div>
+            </div>
+            <div class="row" style="margin-top: 10px">
+              <button id="copyBtn" class="secondary" style="display: none">
+                Copy Address
+              </button>
+              <span class="spacer"></span>
+              <span class="small">Result</span>
+            </div>
+            <pre id="output"></pre>
+          </div>
         </div>
-        <div class="field">
-          <label
-            >Proxy Contract Address:<br />
-            <input type="text" id="upgradeProxyAddress" placeholder="0x..." />
-          </label>
+
+        <!-- Upgrade Section -->
+        <div class="section collapsed" id="upgradeSection">
+          <div class="section-header">
+            <div class="arrow">▶</div>
+            <div>
+              <div class="section-title">Upgrade Proxy</div>
+              <div class="section-sub">Deploy new implementation & upgrade</div>
+            </div>
+            <div class="row"><span class="small">Step 2</span></div>
+          </div>
+          <div class="section-content">
+            <div class="instructions">
+              <b>Upgrade Proxy Implementation:</b> Only contract owner can
+              perform this.
+              <div class="upgrade-warning">
+                Warning: Upgrading will point your proxy to a new
+                implementation.
+              </div>
+            </div>
+            <div class="grid">
+              <div class="field">
+                <label>Proxy Contract Address</label>
+                <input
+                  type="text"
+                  id="upgradeProxyAddress"
+                  placeholder="0x..."
+                />
+              </div>
+              <div class="field">
+                <label>Upgrade To Contract Name</label>
+                <input
+                  type="text"
+                  id="upgradeContractType"
+                  placeholder="CollectionFactoryV2"
+                />
+                <span class="small"
+                  >Name must match your compiled artifact</span
+                >
+              </div>
+              <div class="field">
+                <label>Initializer Function (optional)</label>
+                <input type="text" id="initFnName" placeholder="initializeV2" />
+              </div>
+              <div class="field">
+                <label>Initializer Arguments (comma-separated)</label>
+                <input
+                  type="text"
+                  id="initFnArgs"
+                  placeholder="1.0.0,42,true"
+                />
+              </div>
+            </div>
+            <div class="row" style="margin-top: 10px">
+              <button id="deployAndUpgradeBtn">Deploy & Upgrade</button>
+              <span class="spacer"></span>
+              <span class="small">Result</span>
+            </div>
+            <pre id="upgradeOutput"></pre>
+          </div>
         </div>
-        <div class="field">
-          <label>
-            <span>Upgrade To Contract Name:</span>
-            <input
-              type="text"
-              id="upgradeContractType"
-              placeholder="CollectionFactoryV2"
-            />
-            <span class="small"
-              >Enter contract name matching your JSON artifact (without
-              .json)</span
-            >
-          </label>
+
+        <!-- Test Proxy Section -->
+        <div class="section collapsed" id="testSection">
+          <div class="section-header">
+            <div class="arrow">▶</div>
+            <div>
+              <div class="section-title">Test Proxy</div>
+              <div class="section-sub">Read/write arbitrary functions</div>
+            </div>
+            <div class="row"><span class="small">Step 3</span></div>
+          </div>
+          <div class="section-content">
+            <div class="grid">
+              <div class="field">
+                <label>Proxy Address</label>
+                <input type="text" id="testProxyAddress" placeholder="0x..." />
+              </div>
+              <div class="field">
+                <label>&nbsp;</label>
+                <button id="getImplBtn" class="secondary">
+                  Get Implementation
+                </button>
+              </div>
+            </div>
+            <span id="currentImplResult" class="small"></span>
+            <hr />
+            <div class="grid">
+              <div class="field">
+                <label>Function Signature</label>
+                <input
+                  type="text"
+                  id="fnSignature"
+                  placeholder="functionName(type1,type2,...)"
+                />
+              </div>
+              <div class="field">
+                <label>Arguments (comma-separated)</label>
+                <input type="text" id="fnArgs" placeholder="arg1,arg2,..." />
+              </div>
+              <div class="field">
+                <label
+                  ><input type="checkbox" id="isWriteTx" /> Call as Write
+                  (tx)</label
+                >
+              </div>
+              <div class="field">
+                <label>&nbsp;</label>
+                <button id="callFnBtn">Call Function</button>
+              </div>
+            </div>
+            <pre id="fnResult"></pre>
+          </div>
         </div>
-        <div class="field">
-          <label>
-            Initializer Function Name (optional):<br />
-            <input type="text" id="initFnName" placeholder="initializeV2" />
-          </label>
+
+        <!-- Deploy GameMarketplace Section -->
+        <div class="section collapsed" id="deployMarketplaceSection">
+          <div class="section-header">
+            <div class="arrow">▶</div>
+            <div>
+              <div class="section-title">Deploy GameMarketplace</div>
+              <div class="section-sub">Upgradeable or non-upgradeable</div>
+            </div>
+            <div class="row"><span class="small">Step 4</span></div>
+          </div>
+          <div class="section-content">
+            <div class="instructions">
+              <b>Deploy new GameMarketplace:</b> Connect wallet → set fee
+              recipient → choose mode → deploy.
+            </div>
+            <div class="grid">
+              <div class="field">
+                <label>Deployment Fee (ETH)</label>
+                <input
+                  type="number"
+                  step="0.0001"
+                  min="0"
+                  id="marketplaceDeploymentFee"
+                  value="0.001"
+                />
+              </div>
+              <div class="field">
+                <label>Fee Recipient Address</label>
+                <input
+                  type="text"
+                  id="marketplaceFeeRecipient"
+                  placeholder="0x..."
+                />
+              </div>
+              <div class="field">
+                <label
+                  ><input type="checkbox" id="marketplaceDeployProxy" checked />
+                  Deploy as Upgradeable (UUPS)</label
+                >
+              </div>
+              <div class="field">
+                <label>&nbsp;</label>
+                <button id="deployMarketplaceBtn">Deploy Marketplace</button>
+              </div>
+            </div>
+            <div class="row" style="margin-top: 10px">
+              <button
+                id="copyMarketplaceBtn"
+                class="secondary"
+                style="display: none"
+              >
+                Copy Address
+              </button>
+              <span class="spacer"></span>
+              <span class="small">Result</span>
+            </div>
+            <pre id="deployMarketplaceOutput"></pre>
+          </div>
         </div>
-        <div class="field">
-          <label>
-            Initializer Arguments (comma-separated):<br />
-            <input type="text" id="initFnArgs" placeholder="1.0.0,42,true" />
-          </label>
+
+        <!-- Upgrade GameMarketplace Section -->
+        <div class="section collapsed" id="upgradeMarketplaceSection">
+          <div class="section-header">
+            <div class="arrow">▶</div>
+            <div>
+              <div class="section-title">Upgrade GameMarketplace Proxy</div>
+              <div class="section-sub">Deploy & upgrade to V2/V3…</div>
+            </div>
+            <div class="row"><span class="small">Step 5</span></div>
+          </div>
+          <div class="section-content">
+            <div class="instructions">
+              <b>Upgrade GameMarketplace Proxy:</b> owner-only.
+            </div>
+            <div class="grid">
+              <div class="field">
+                <label>Proxy Contract Address</label>
+                <input
+                  type="text"
+                  id="upgradeMarketplaceProxyAddress"
+                  placeholder="0x..."
+                />
+              </div>
+              <div class="field">
+                <label>Upgrade To Contract Name</label>
+                <input
+                  type="text"
+                  id="upgradeMarketplaceContractType"
+                  placeholder="GameMarketplaceV3"
+                />
+                <span class="small">Optional: must match artifact name</span>
+              </div>
+              <div class="field">
+                <label>Initializer Function (optional)</label>
+                <input
+                  type="text"
+                  id="marketplaceInitFnName"
+                  placeholder="initializeV2"
+                />
+              </div>
+              <div class="field">
+                <label>Initializer Arguments (comma-separated)</label>
+                <input
+                  type="text"
+                  id="marketplaceInitFnArgs"
+                  placeholder="1.0.0,42,true"
+                />
+              </div>
+            </div>
+            <div class="row" style="margin-top: 10px">
+              <button id="deployAndUpgradeMarketplaceBtn">
+                Deploy & Upgrade
+              </button>
+              <span class="spacer"></span>
+              <span class="small">Result</span>
+            </div>
+            <pre id="upgradeMarketplaceOutput"></pre>
+          </div>
         </div>
-        <div class="field">
-          <button id="deployAndUpgradeBtn">Deploy & Upgrade</button>
+
+        <!-- Test GameMarketplace Proxy Section -->
+        <div class="section collapsed" id="testMarketplaceSection">
+          <div class="section-header">
+            <div class="arrow">▶</div>
+            <div>
+              <div class="section-title">Test GameMarketplace Proxy</div>
+              <div class="section-sub">Read/write via ABI signature</div>
+            </div>
+            <div class="row"><span class="small">Step 6</span></div>
+          </div>
+          <div class="section-content">
+            <div class="grid">
+              <div class="field">
+                <label>Proxy Address</label>
+                <input
+                  type="text"
+                  id="testMarketplaceProxyAddress"
+                  placeholder="0x..."
+                />
+              </div>
+              <div class="field">
+                <label>&nbsp;</label>
+                <button id="getMarketplaceImplBtn" class="secondary">
+                  Get Implementation
+                </button>
+              </div>
+            </div>
+            <span id="marketplaceCurrentImplResult" class="small"></span>
+            <hr />
+            <div class="grid">
+              <div class="field">
+                <label>Function Signature</label>
+                <input
+                  type="text"
+                  id="marketplaceFnSignature"
+                  placeholder="functionName(type1,type2,...)"
+                />
+              </div>
+              <div class="field">
+                <label>Arguments (comma-separated)</label>
+                <input
+                  type="text"
+                  id="marketplaceFnArgs"
+                  placeholder="arg1,arg2,..."
+                />
+              </div>
+              <div class="field">
+                <label
+                  ><input type="checkbox" id="marketplaceIsWriteTx" /> Call as
+                  Write (tx)</label
+                >
+              </div>
+              <div class="field">
+                <label>&nbsp;</label>
+                <button id="callMarketplaceFnBtn">Call Function</button>
+              </div>
+            </div>
+            <pre id="marketplaceFnResult"></pre>
+          </div>
         </div>
-        <pre id="upgradeOutput"></pre>
-      </div>
+
+        <!-- Deploy ReferralRegistry -->
+        <div class="section collapsed" id="deployRegistrySection">
+          <div class="section-header">
+            <div class="arrow">▶</div>
+            <div>
+              <div class="section-title">Deploy ReferralRegistry</div>
+              <div class="section-sub">Upgradeable or non-upgradeable</div>
+            </div>
+          </div>
+          <div class="section-content">
+            <div class="instructions">
+              <b>ReferralRegistry:</b> UUPS proxy supported; calls
+              <code>initialize(admin)</code>.
+            </div>
+            <div class="grid">
+              <div class="field">
+                <label
+                  ><input type="checkbox" id="registryDeployProxy" checked />
+                  Deploy as Upgradeable (UUPS)</label
+                >
+              </div>
+              <div class="field">
+                <label>&nbsp;</label>
+                <button id="deployRegistryBtn">Deploy ReferralRegistry</button>
+              </div>
+            </div>
+            <div class="row" style="margin-top: 10px">
+              <button
+                id="copyRegistryBtn"
+                class="secondary"
+                style="display: none"
+              >
+                Copy Address
+              </button>
+              <span class="spacer"></span>
+              <span class="small">Result</span>
+            </div>
+            <pre id="deployRegistryOutput"></pre>
+          </div>
+        </div>
+
+        <!-- Deploy IncentiveEngine -->
+        <div class="section collapsed" id="deployEngineSection">
+          <div class="section-header">
+            <div class="arrow">▶</div>
+            <div>
+              <div class="section-title">Deploy IncentiveEngine</div>
+              <div class="section-sub">Needs ReferralRegistry</div>
+            </div>
+          </div>
+          <div class="section-content">
+            <div class="instructions">
+              <b>IncentiveEngine:</b> pass the <b>ReferralRegistry</b> address
+              to initializer.
+            </div>
+            <div class="grid">
+              <div class="field">
+                <label>ReferralRegistry Address</label>
+                <input
+                  type="text"
+                  id="engineRegistryAddr"
+                  placeholder="0x..."
+                />
+              </div>
+              <div class="field">
+                <label
+                  ><input type="checkbox" id="engineDeployProxy" checked />
+                  Deploy as Upgradeable (UUPS)</label
+                >
+              </div>
+              <div class="field">
+                <label>&nbsp;</label>
+                <button id="deployEngineBtn">Deploy IncentiveEngine</button>
+              </div>
+            </div>
+            <div class="row" style="margin-top: 10px">
+              <button
+                id="copyEngineBtn"
+                class="secondary"
+                style="display: none"
+              >
+                Copy Address
+              </button>
+              <span class="spacer"></span>
+              <span class="small">Result</span>
+            </div>
+            <pre id="deployEngineOutput"></pre>
+          </div>
+        </div>
+
+        <!-- Wire Incentives -->
+        <div class="section collapsed" id="wireIncentivesSection">
+          <div class="section-header">
+            <div class="arrow">▶</div>
+            <div>
+              <div class="section-title">
+                Wire Incentives (Marketplace → Engine)
+              </div>
+              <div class="section-sub">
+                Set pool BPS & treasury per collection
+              </div>
+            </div>
+          </div>
+          <div class="section-content">
+            <div class="grid">
+              <div class="field">
+                <label>Marketplace Proxy</label>
+                <input type="text" id="wireMarket" placeholder="0x..." />
+              </div>
+              <div class="field">
+                <label>Engine Address</label>
+                <input type="text" id="wireEngine" placeholder="0x..." />
+              </div>
+              <div class="field">
+                <label>Collection Address</label>
+                <input type="text" id="wireCollection" placeholder="0x..." />
+              </div>
+              <div class="field">
+                <label>Pool Bps (0..10000)</label>
+                <input type="number" id="wirePoolBps" value="2000" />
+              </div>
+              <div class="field">
+                <label>Treasury Address</label>
+                <input type="text" id="wireTreasury" placeholder="0x..." />
+              </div>
+              <div class="field">
+                <label>&nbsp;</label>
+                <button id="wireBtn">Wire Now</button>
+              </div>
+            </div>
+            <pre id="wireOutput"></pre>
+          </div>
+        </div>
+      </main>
     </div>
 
-    <!-- Test Proxy Section -->
-    <div class="section collapsed" id="testSection">
-      <div class="section-header">
-        <span class="arrow">&#9654;</span>
-        <span class="section-title">Test Proxy</span>
-      </div>
-      <div class="section-content">
-        <div class="instructions">
-          <b>Interact with Proxy:</b><br />
-          - Get current implementation address.<br />
-          - Call any function by ABI signature and arguments.<br />
-        </div>
-        <div class="field">
-          <label
-            >Proxy Address:<br />
-            <input type="text" id="testProxyAddress" placeholder="0x..." />
-          </label>
-        </div>
-        <div class="field">
-          <button id="getImplBtn">Get Implementation</button>
-          <span id="currentImplResult" class="small"></span>
-        </div>
-        <hr style="border: 1px solid #222" />
-        <div class="field">
-          <label
-            >Function Signature:<br />
-            <input
-              type="text"
-              id="fnSignature"
-              placeholder="functionName(type1,type2,...)"
-            />
-          </label>
-        </div>
-        <div class="field">
-          <label
-            >Arguments (comma-separated):<br />
-            <input type="text" id="fnArgs" placeholder="arg1,arg2,..." />
-          </label>
-        </div>
-        <div class="field">
-          <label>
-            <input type="checkbox" id="isWriteTx" />
-            Call as <b>Write (transaction)</b> (uncheck for Read/call)
-          </label>
-        </div>
-        <div class="field">
-          <button id="callFnBtn">Call Function</button>
-        </div>
-        <pre id="fnResult"></pre>
-      </div>
-    </div>
+    <!-- Back to top -->
+    <button id="toTop" class="secondary">Back to top ⤴</button>
 
-    <!-- Deploy GameMarketplace Section -->
-    <div class="section collapsed" id="deployMarketplaceSection">
-      <div class="section-header">
-        <span class="arrow">&#9654;</span>
-        <span class="section-title">Deploy GameMarketplace</span>
-      </div>
-      <div class="section-content">
-        <div class="instructions">
-          <b>Deploy new GameMarketplace (Upgradeable or Non-upgradeable):</b
-          ><br />
-          1. Connect MetaMask.<br />
-          2. Enter fee recipient.<br />
-          3. Choose mode and click Deploy.<br />
-          <span class="small"
-            >If deploying as proxy, you can later upgrade it below.</span
-          >
-        </div>
-        <div class="field">
-          <label>
-            Deployment Fee (ETH):<br />
-            <input
-              type="number"
-              step="0.0001"
-              min="0"
-              id="marketplaceDeploymentFee"
-              value="0.001"
-            />
-          </label>
-        </div>
-        <div class="field">
-          <label>
-            Fee Recipient Address:<br />
-            <input
-              type="text"
-              id="marketplaceFeeRecipient"
-              placeholder="0x..."
-            />
-          </label>
-        </div>
-        <div class="field">
-          <label>
-            <input type="checkbox" id="marketplaceDeployProxy" checked /> Deploy
-            as Upgradeable (UUPS Proxy)
-          </label>
-        </div>
-        <div class="field">
-          <button id="deployMarketplaceBtn">Deploy Marketplace</button>
-        </div>
-        <pre id="deployMarketplaceOutput"></pre>
-        <button id="copyMarketplaceBtn" style="display: none">
-          Copy Address
-        </button>
-      </div>
-    </div>
-
-    <!-- Upgrade GameMarketplace Section -->
-    <div class="section collapsed" id="upgradeMarketplaceSection">
-      <div class="section-header">
-        <span class="arrow">&#9654;</span>
-        <span class="section-title">Upgrade GameMarketplace Proxy</span>
-      </div>
-      <div class="section-content">
-        <div class="instructions">
-          <b>Upgrade GameMarketplace Proxy Implementation:</b><br />
-          Only contract owner can perform this.<br />
-          Enter proxy address and upgrade.<br />
-          <span class="upgrade-warning"
-            >Warning: This will deploy a new implementation and upgrade your
-            proxy. Make sure you intend to upgrade!</span
-          >
-        </div>
-        <div class="field">
-          <label>
-            Proxy Contract Address:<br />
-            <input
-              type="text"
-              id="upgradeMarketplaceProxyAddress"
-              placeholder="0x..."
-            />
-          </label>
-        </div>
-        <div class="field">
-          <label>
-            <span>Upgrade To Contract Name:</span>
-            <input
-              type="text"
-              id="upgradeMarketplaceContractType"
-              placeholder="GameMarketplaceV2"
-            />
-            <span class="small"
-              >Enter contract name matching your JSON artifact (optional)</span
-            >
-          </label>
-        </div>
-        <div class="field">
-          <label>
-            Initializer Function Name (optional):<br />
-            <input
-              type="text"
-              id="marketplaceInitFnName"
-              placeholder="initializeV2"
-            />
-          </label>
-        </div>
-        <div class="field">
-          <label>
-            Initializer Arguments (comma-separated):<br />
-            <input
-              type="text"
-              id="marketplaceInitFnArgs"
-              placeholder="1.0.0,42,true"
-            />
-          </label>
-        </div>
-        <div class="field">
-          <button id="deployAndUpgradeMarketplaceBtn">Deploy & Upgrade</button>
-        </div>
-        <pre id="upgradeMarketplaceOutput"></pre>
-      </div>
-    </div>
-
-    <!-- Test GameMarketplace Proxy Section -->
-    <div class="section collapsed" id="testMarketplaceSection">
-      <div class="section-header">
-        <span class="arrow">&#9654;</span>
-        <span class="section-title">Test GameMarketplace Proxy</span>
-      </div>
-      <div class="section-content">
-        <div class="instructions">
-          <b>Interact with GameMarketplace Proxy:</b><br />
-          - Get current implementation address.<br />
-          - Call any function by ABI signature and arguments.<br />
-        </div>
-        <div class="field">
-          <label>
-            Proxy Address:<br />
-            <input
-              type="text"
-              id="testMarketplaceProxyAddress"
-              placeholder="0x..."
-            />
-          </label>
-        </div>
-        <div class="field">
-          <button id="getMarketplaceImplBtn">Get Implementation</button>
-          <span id="marketplaceCurrentImplResult" class="small"></span>
-        </div>
-        <hr style="border: 1px solid #222" />
-        <div class="field">
-          <label>
-            Function Signature:<br />
-            <input
-              type="text"
-              id="marketplaceFnSignature"
-              placeholder="functionName(type1,type2,...)"
-            />
-          </label>
-        </div>
-        <div class="field">
-          <label>
-            Arguments (comma-separated):<br />
-            <input
-              type="text"
-              id="marketplaceFnArgs"
-              placeholder="arg1,arg2,..."
-            />
-          </label>
-        </div>
-        <div class="field">
-          <label>
-            <input type="checkbox" id="marketplaceIsWriteTx" />
-            Call as <b>Write (transaction)</b> (uncheck for Read/call)
-          </label>
-        </div>
-        <div class="field">
-          <button id="callMarketplaceFnBtn">Call Function</button>
-        </div>
-        <pre id="marketplaceFnResult"></pre>
-      </div>
-    </div>
-
-    <!-- Deploy NFTBatchSender Section -->
-    <div class="section collapsed" id="deploySenderSection">
-      <div class="section-header">
-        <span class="arrow">&#9654;</span>
-        <span class="section-title"
-          >Deploy NFTBatchSender (non-upgradeable)</span
-        >
-      </div>
-      <div class="section-content">
-        <div class="instructions">
-          <b>Deploy the batch transfer helper:</b><br />
-          - Set max batch size (sane default 100)<br />
-          - (Optional) Set initial owner (multisig). If empty, deployer becomes
-          owner.
-        </div>
-        <div class="field">
-          <label
-            >Max Batch Size:<br />
-            <input type="number" min="1" id="senderMaxBatch" value="100" />
-          </label>
-        </div>
-        <div class="field">
-          <label
-            >Initial Owner (optional):<br />
-            <input type="text" id="senderOwner" placeholder="0xMultisig..." />
-          </label>
-        </div>
-        <div class="field">
-          <button id="deploySenderBtn">Deploy NFTBatchSender</button>
-        </div>
-        <pre id="deploySenderOutput"></pre>
-        <button id="copySenderBtn" style="display: none">Copy Address</button>
-      </div>
-    </div>
-
+    <!-- Your original TS still loads -->
     <script type="module" src="/src/index.ts"></script>
     <script>
-      // Collapsible section logic with arrow rotation
+      // Collapsible sections (keep your original behavior)
       document.querySelectorAll(".section-header").forEach((header) => {
-        header.addEventListener("click", function () {
+        header.addEventListener("click", function (e) {
+          // Ignore clicks on buttons inside header
+          if ((e.target.tagName || "").toLowerCase() === "button") return;
           const section = this.parentElement;
           section.classList.toggle("collapsed");
-          const arrow = this.querySelector(".arrow");
-          if (section.classList.contains("collapsed")) {
-            arrow.style.transform = "rotate(0deg)";
-          } else {
-            arrow.style.transform = "rotate(90deg)";
+        });
+      });
+
+      // Scrollspy for sidebar
+      const spyLinks = [...document.querySelectorAll("#scrollspy a")];
+      const sections = spyLinks.map((a) =>
+        document.querySelector(a.getAttribute("href"))
+      );
+      const io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            const idx = sections.indexOf(entry.target);
+            if (idx >= 0) {
+              const link = spyLinks[idx];
+              if (entry.isIntersecting) {
+                spyLinks.forEach((l) => l.classList.remove("active"));
+                link.classList.add("active");
+              }
+            }
+          });
+        },
+        { rootMargin: "-40% 0px -50% 0px", threshold: 0.01 }
+      );
+      sections.forEach((sec) => sec && io.observe(sec));
+
+      // Smooth anchor click opens collapsed section first
+      spyLinks.forEach((a) => {
+        a.addEventListener("click", (e) => {
+          const id = a.getAttribute("href");
+          const sec = document.querySelector(id);
+          if (sec && sec.classList.contains("collapsed")) {
+            sec.classList.remove("collapsed");
           }
         });
       });
 
-      // Default states (on reload)
-      document.addEventListener("DOMContentLoaded", () => {
-        document.getElementById("deploySection").classList.remove("collapsed");
-        document.getElementById("upgradeSection").classList.add("collapsed");
-        document.getElementById("testSection").classList.add("collapsed");
+      // Back-to-top button
+      const toTop = document.getElementById("toTop");
+      window.addEventListener("scroll", () => {
+        if (window.scrollY > 500) toTop.classList.add("show");
+        else toTop.classList.remove("show");
       });
+      toTop.addEventListener("click", () =>
+        window.scrollTo({ top: 0, behavior: "smooth" })
+      );
+
+      // Minimal placeholders your index.ts can fill/update
+      // (no break if not set)
+      const setText = (id, txt) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = txt;
+      };
+      // Example: your TS can call these on connect/network change
+      window.__ui = {
+        setAccountShort: (t) => setText("acctShort", t),
+        setNetworkName: (t) => setText("netName", t),
+        setChainId: (t) => setText("chainId", t),
+      };
     </script>
   </body>
 </html>

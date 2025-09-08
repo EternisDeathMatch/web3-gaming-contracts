@@ -5,8 +5,14 @@ import { upgradeContract } from "./upgrade";
 import { getImplementationAddress, callProxyFunction } from "./testProxy";
 import { deployMarketplace } from "./deployMarketplace";
 import { upgradeMarketplace } from "./upgradeMarketplace";
-import { getMarketplaceImplAddress, callMarketplaceFn } from "./testProxyMarketplace";
+import {
+  getMarketplaceImplAddress,
+  callMarketplaceFn,
+} from "./testProxyMarketplace";
 import { autofillFeeRecipient } from "./ui";
+import { deployRegistry } from "./deployRegistry";
+import { deployEngine } from "./deployEngine";
+import { wireIncentives } from "./wireIncentives";
 
 declare global {
   interface Window {
@@ -21,7 +27,9 @@ const out = document.getElementById("output") as HTMLElement;
 const deployBtn = document.getElementById("deployBtn") as HTMLButtonElement;
 const copyBtn = document.getElementById("copyBtn") as HTMLButtonElement;
 const feeInput = document.getElementById("deploymentFee") as HTMLInputElement;
-const recipientInput = document.getElementById("feeRecipient") as HTMLInputElement;
+const recipientInput = document.getElementById(
+  "feeRecipient"
+) as HTMLInputElement;
 const proxyToggle = document.getElementById("deployProxy") as HTMLInputElement;
 
 autofillFeeRecipient(recipientInput);
@@ -41,17 +49,29 @@ copyBtn.onclick = function () {
   if (addr) {
     navigator.clipboard.writeText(addr);
     copyBtn.innerText = "Copied!";
-    setTimeout(() => { copyBtn.innerText = "Copy Address"; }, 1200);
+    setTimeout(() => {
+      copyBtn.innerText = "Copy Address";
+    }, 1200);
   }
 };
 
 // UPGRADE CollectionFactory
-const deployAndUpgradeBtn = document.getElementById("deployAndUpgradeBtn") as HTMLButtonElement;
-const upgradeProxyInput = document.getElementById("upgradeProxyAddress") as HTMLInputElement;
-const upgradeTypeInput = document.getElementById("upgradeContractType") as HTMLInputElement;
+const deployAndUpgradeBtn = document.getElementById(
+  "deployAndUpgradeBtn"
+) as HTMLButtonElement;
+const upgradeProxyInput = document.getElementById(
+  "upgradeProxyAddress"
+) as HTMLInputElement;
+const upgradeTypeInput = document.getElementById(
+  "upgradeContractType"
+) as HTMLInputElement;
 const upgradeOutput = document.getElementById("upgradeOutput") as HTMLElement;
-const initFnNameInput = document.getElementById("initFnName") as HTMLInputElement;
-const initFnArgsInput = document.getElementById("initFnArgs") as HTMLInputElement;
+const initFnNameInput = document.getElementById(
+  "initFnName"
+) as HTMLInputElement;
+const initFnArgsInput = document.getElementById(
+  "initFnArgs"
+) as HTMLInputElement;
 
 deployAndUpgradeBtn.onclick = async function () {
   await upgradeContract({
@@ -65,15 +85,24 @@ deployAndUpgradeBtn.onclick = async function () {
 
 // TEST PROXY CollectionFactory
 const getImplBtn = document.getElementById("getImplBtn") as HTMLButtonElement;
-const testProxyInput = document.getElementById("testProxyAddress") as HTMLInputElement;
-const currentImplResult = document.getElementById("currentImplResult") as HTMLElement;
+const testProxyInput = document.getElementById(
+  "testProxyAddress"
+) as HTMLInputElement;
+const currentImplResult = document.getElementById(
+  "currentImplResult"
+) as HTMLElement;
 
 getImplBtn.onclick = async function () {
-  await getImplementationAddress(testProxyInput.value.trim(), currentImplResult);
+  await getImplementationAddress(
+    testProxyInput.value.trim(),
+    currentImplResult
+  );
 };
 
 const callFnBtn = document.getElementById("callFnBtn") as HTMLButtonElement;
-const fnSignatureInput = document.getElementById("fnSignature") as HTMLInputElement;
+const fnSignatureInput = document.getElementById(
+  "fnSignature"
+) as HTMLInputElement;
 const fnArgsInput = document.getElementById("fnArgs") as HTMLInputElement;
 const fnResult = document.getElementById("fnResult") as HTMLElement;
 const isWriteTx = document.getElementById("isWriteTx") as HTMLInputElement;
@@ -92,12 +121,24 @@ callFnBtn.onclick = async function () {
 // === MARKETPLACE SECTION ===
 // ===========================
 
-const deployMarketplaceBtn = document.getElementById("deployMarketplaceBtn") as HTMLButtonElement;
-const copyMarketplaceBtn = document.getElementById("copyMarketplaceBtn") as HTMLButtonElement;
-const marketplaceFeeInput = document.getElementById("marketplaceDeploymentFee") as HTMLInputElement;
-const marketplaceRecipientInput = document.getElementById("marketplaceFeeRecipient") as HTMLInputElement;
-const marketplaceProxyToggle = document.getElementById("marketplaceDeployProxy") as HTMLInputElement;
-const deployMarketplaceOutput = document.getElementById("deployMarketplaceOutput") as HTMLElement;
+const deployMarketplaceBtn = document.getElementById(
+  "deployMarketplaceBtn"
+) as HTMLButtonElement;
+const copyMarketplaceBtn = document.getElementById(
+  "copyMarketplaceBtn"
+) as HTMLButtonElement;
+const marketplaceFeeInput = document.getElementById(
+  "marketplaceDeploymentFee"
+) as HTMLInputElement;
+const marketplaceRecipientInput = document.getElementById(
+  "marketplaceFeeRecipient"
+) as HTMLInputElement;
+const marketplaceProxyToggle = document.getElementById(
+  "marketplaceDeployProxy"
+) as HTMLInputElement;
+const deployMarketplaceOutput = document.getElementById(
+  "deployMarketplaceOutput"
+) as HTMLElement;
 
 // Deploy GameMarketplace (same pattern as CollectionFactory!)
 deployMarketplaceBtn.onclick = async function () {
@@ -115,17 +156,31 @@ copyMarketplaceBtn.onclick = function () {
   if (addr) {
     navigator.clipboard.writeText(addr);
     copyMarketplaceBtn.innerText = "Copied!";
-    setTimeout(() => { copyMarketplaceBtn.innerText = "Copy Address"; }, 1200);
+    setTimeout(() => {
+      copyMarketplaceBtn.innerText = "Copy Address";
+    }, 1200);
   }
 };
 
 // UPGRADE GameMarketplace (same pattern!)
-const deployAndUpgradeMarketplaceBtn = document.getElementById("deployAndUpgradeMarketplaceBtn") as HTMLButtonElement;
-const upgradeMarketplaceProxyInput = document.getElementById("upgradeMarketplaceProxyAddress") as HTMLInputElement;
-const upgradeMarketplaceTypeInput = document.getElementById("upgradeMarketplaceContractType") as HTMLInputElement;
-const upgradeMarketplaceOutput = document.getElementById("upgradeMarketplaceOutput") as HTMLElement;
-const marketplaceInitFnNameInput = document.getElementById("marketplaceInitFnName") as HTMLInputElement;
-const marketplaceInitFnArgsInput = document.getElementById("marketplaceInitFnArgs") as HTMLInputElement;
+const deployAndUpgradeMarketplaceBtn = document.getElementById(
+  "deployAndUpgradeMarketplaceBtn"
+) as HTMLButtonElement;
+const upgradeMarketplaceProxyInput = document.getElementById(
+  "upgradeMarketplaceProxyAddress"
+) as HTMLInputElement;
+const upgradeMarketplaceTypeInput = document.getElementById(
+  "upgradeMarketplaceContractType"
+) as HTMLInputElement;
+const upgradeMarketplaceOutput = document.getElementById(
+  "upgradeMarketplaceOutput"
+) as HTMLElement;
+const marketplaceInitFnNameInput = document.getElementById(
+  "marketplaceInitFnName"
+) as HTMLInputElement;
+const marketplaceInitFnArgsInput = document.getElementById(
+  "marketplaceInitFnArgs"
+) as HTMLInputElement;
 
 deployAndUpgradeMarketplaceBtn.onclick = async function () {
   await upgradeMarketplace({
@@ -138,36 +193,65 @@ deployAndUpgradeMarketplaceBtn.onclick = async function () {
 };
 
 // TEST PROXY GameMarketplace (same pattern!)
-const getMarketplaceImplBtn = document.getElementById("getMarketplaceImplBtn") as HTMLButtonElement;
-const testMarketplaceProxyInput = document.getElementById("testMarketplaceProxyAddress") as HTMLInputElement;
-const marketplaceCurrentImplResult = document.getElementById("marketplaceCurrentImplResult") as HTMLElement;
+const getMarketplaceImplBtn = document.getElementById(
+  "getMarketplaceImplBtn"
+) as HTMLButtonElement;
+const testMarketplaceProxyInput = document.getElementById(
+  "testMarketplaceProxyAddress"
+) as HTMLInputElement;
+const marketplaceCurrentImplResult = document.getElementById(
+  "marketplaceCurrentImplResult"
+) as HTMLElement;
 
 getMarketplaceImplBtn.onclick = async function () {
-  await getMarketplaceImplAddress(testMarketplaceProxyInput.value.trim(), marketplaceCurrentImplResult);
+  await getMarketplaceImplAddress(
+    testMarketplaceProxyInput.value.trim(),
+    marketplaceCurrentImplResult
+  );
 };
 
-const callMarketplaceFnBtn = document.getElementById("callMarketplaceFnBtn") as HTMLButtonElement;
-const marketplaceFnSignatureInput = document.getElementById("marketplaceFnSignature") as HTMLInputElement;
-const marketplaceFnArgsInput = document.getElementById("marketplaceFnArgs") as HTMLInputElement;
-const marketplaceFnResult = document.getElementById("marketplaceFnResult") as HTMLElement;
-const marketplaceIsWriteTx = document.getElementById("marketplaceIsWriteTx") as HTMLInputElement;
+const callMarketplaceFnBtn = document.getElementById(
+  "callMarketplaceFnBtn"
+) as HTMLButtonElement;
+const marketplaceFnSignatureInput = document.getElementById(
+  "marketplaceFnSignature"
+) as HTMLInputElement;
+const marketplaceFnArgsInput = document.getElementById(
+  "marketplaceFnArgs"
+) as HTMLInputElement;
+const marketplaceFnResult = document.getElementById(
+  "marketplaceFnResult"
+) as HTMLElement;
+const marketplaceIsWriteTx = document.getElementById(
+  "marketplaceIsWriteTx"
+) as HTMLInputElement;
 
 callMarketplaceFnBtn.onclick = async function () {
   await callMarketplaceFn({
     proxyAddr: testMarketplaceProxyInput.value.trim(),
     fnSig: marketplaceFnSignatureInput.value.trim(),
-    fnArgs: marketplaceFnArgsInput.value.trim() ? marketplaceFnArgsInput.value.trim().split(",") : [],
+    fnArgs: marketplaceFnArgsInput.value.trim()
+      ? marketplaceFnArgsInput.value.trim().split(",")
+      : [],
     isWrite: marketplaceIsWriteTx.checked,
     fnResult: marketplaceFnResult,
   });
 };
 
 // --- Batch Sender Section ---
-const deploySenderBtn = document.getElementById("deploySenderBtn") as HTMLButtonElement;
-const senderMaxBatchInput = document.getElementById("senderMaxBatch") as HTMLInputElement;
-const senderOwnerInput = document.getElementById("senderOwner") as HTMLInputElement; // optional
+const deploySenderBtn = document.getElementById(
+  "deploySenderBtn"
+) as HTMLButtonElement;
+const senderMaxBatchInput = document.getElementById(
+  "senderMaxBatch"
+) as HTMLInputElement;
+const senderOwnerInput = document.getElementById(
+  "senderOwner"
+) as HTMLInputElement; // optional
 const senderOut = document.getElementById("deploySenderOutput") as HTMLElement;
-const copySenderBtn = document.getElementById("copySenderBtn") as HTMLButtonElement;
+const copySenderBtn = document.getElementById(
+  "copySenderBtn"
+) as HTMLButtonElement;
 
 deploySenderBtn.onclick = async function () {
   await deployBatchSender({
@@ -185,4 +269,94 @@ copySenderBtn.onclick = function () {
     copySenderBtn.innerText = "Copied!";
     setTimeout(() => (copySenderBtn.innerText = "Copy Address"), 1200);
   }
+};
+
+// --- Registry ---
+const deployRegistryBtn = document.getElementById(
+  "deployRegistryBtn"
+) as HTMLButtonElement;
+const registryProxyToggle = document.getElementById(
+  "registryDeployProxy"
+) as HTMLInputElement;
+const deployRegistryOutput = document.getElementById(
+  "deployRegistryOutput"
+) as HTMLElement;
+const copyRegistryBtn = document.getElementById(
+  "copyRegistryBtn"
+) as HTMLButtonElement;
+
+deployRegistryBtn.onclick = async function () {
+  await deployRegistry({
+    asProxy: registryProxyToggle.checked,
+    out: deployRegistryOutput,
+    copyBtn: copyRegistryBtn,
+  });
+};
+copyRegistryBtn.onclick = function () {
+  const addr = (window as any).registryDeployedAddress;
+  if (addr) {
+    navigator.clipboard.writeText(addr);
+    copyRegistryBtn.innerText = "Copied!";
+    setTimeout(() => (copyRegistryBtn.innerText = "Copy Address"), 1200);
+  }
+};
+
+// --- Engine ---
+const deployEngineBtn = document.getElementById(
+  "deployEngineBtn"
+) as HTMLButtonElement;
+const engineProxyToggle = document.getElementById(
+  "engineDeployProxy"
+) as HTMLInputElement;
+const engineRegistryInput = document.getElementById(
+  "engineRegistryAddr"
+) as HTMLInputElement;
+const deployEngineOutput = document.getElementById(
+  "deployEngineOutput"
+) as HTMLElement;
+const copyEngineBtn = document.getElementById(
+  "copyEngineBtn"
+) as HTMLButtonElement;
+
+deployEngineBtn.onclick = async function () {
+  await deployEngine({
+    registryAddr: engineRegistryInput.value.trim(),
+    asProxy: engineProxyToggle.checked,
+    out: deployEngineOutput,
+    copyBtn: copyEngineBtn,
+  });
+};
+copyEngineBtn.onclick = function () {
+  const addr = (window as any).engineDeployedAddress;
+  if (addr) {
+    navigator.clipboard.writeText(addr);
+    copyEngineBtn.innerText = "Copied!";
+    setTimeout(() => (copyEngineBtn.innerText = "Copy Address"), 1200);
+  }
+};
+
+// --- Wire Incentives ---
+const wireBtn = document.getElementById("wireBtn") as HTMLButtonElement;
+const wireOut = document.getElementById("wireOutput") as HTMLElement;
+const wireMarket = document.getElementById("wireMarket") as HTMLInputElement;
+const wireEngineAddr = document.getElementById(
+  "wireEngine"
+) as HTMLInputElement;
+const wireCollection = document.getElementById(
+  "wireCollection"
+) as HTMLInputElement;
+const wirePoolBps = document.getElementById("wirePoolBps") as HTMLInputElement;
+const wireTreasury = document.getElementById(
+  "wireTreasury"
+) as HTMLInputElement;
+
+wireBtn.onclick = async function () {
+  await wireIncentives({
+    marketplaceProxy: wireMarket.value.trim(),
+    engineAddr: wireEngineAddr.value.trim(),
+    collectionAddr: wireCollection.value.trim(),
+    poolBps: Number(wirePoolBps.value || "0"),
+    treasuryAddr: wireTreasury.value.trim(),
+    out: wireOut,
+  });
 };
