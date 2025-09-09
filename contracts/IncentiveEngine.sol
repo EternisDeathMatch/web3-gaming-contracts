@@ -2,7 +2,6 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -13,13 +12,12 @@ interface IReferralRegistry {
 }
 
 /**
- * @title IncentiveEngine
- * @notice Accepts a precomputed POOL (native or ERC20) and splits it between:
- *         buyer cashback, L1 referrer, L2 referrer, and treasury (dust/unassigned).
+ * @title IncentiveEngine (flex-depth only)
+ * @notice Splits a POOL (native or ERC20) among:
+ *         - buyer cashback
+ *         - N referral levels
+ *         - treasury
  *         Uses pull-payments (claimables). Upgradeable (UUPS).
- *
- * @dev Scope is a free bytes32 (suggest: bytes32(uint256(uint160(collectionAddr))))
- *      Option B: preferred payout wallet routing for future accruals.
  */
 contract IncentiveEngine is
     Initializable,
@@ -27,58 +25,56 @@ contract IncentiveEngine is
     ReentrancyGuardUpgradeable,
     UUPSUpgradeable
 {
-    // -------- Roles --------
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
-    // -------- Types --------
     struct Split {
-        uint16 buyerCashbackBps; // of POOL (0..10000)
-        uint16 l1ReferrerBps; // of POOL
-        uint16 l2ReferrerBps; // of POOL
-        address payoutToken; // address(0) => native; else ERC20 token address
-        address treasury; // receives remainder & dust
-        bool recycleMissingToBuyer; // optional: missing L1/L2 → buyer
-        bool recycleMissingToSeller; // optional: missing L1/L2 → seller
+        uint16 buyerCashbackBps; // basis points (0..10000)
+        address payoutToken; // address(0) = native; else ERC20
+        address treasury;
+        bool recycleMissingToBuyer;
+        bool recycleMissingToSeller;
         bool active;
     }
 
-    // -------- State --------
     IReferralRegistry public registry;
 
-    // scope => split config
+    // scope => base split config
     mapping(bytes32 => Split) public splits;
 
-    // user => token => claimable amount
+    // scope => per-level referral bps [L1, L2, L3, ...]
+    mapping(bytes32 => uint16[]) public referrerBps;
+
+    // user => token => claimable balance
     mapping(address => mapping(address => uint256)) public claimable;
 
-    // Option B: preferred payout routing (future accruals go here)
-    mapping(address => address) public payoutOf; // user -> preferred payout wallet (0 = self)
+    // optional preferred payout wallet
+    mapping(address => address) public payoutOf;
 
     // -------- Events --------
     event RegistrySet(address indexed registry);
     event SplitSet(
         bytes32 indexed scope,
         uint16 buyerCashbackBps,
-        uint16 l1ReferrerBps,
-        uint16 l2ReferrerBps,
         address payoutToken,
         address treasury,
         bool recycleMissingToBuyer,
         bool recycleMissingToSeller,
         bool active
     );
+    event ReferrerBpsSet(bytes32 indexed scope, uint16[] bps);
+
     event PoolSettled(
         bytes32 indexed scope,
         address indexed buyer,
-        address l1,
-        address l2,
+        address indexed seller,
         address token,
         uint256 pool,
         uint256 toBuyer,
-        uint256 toL1,
-        uint256 toL2,
+        uint256 toReferrers,
+        uint256 toSellerRecycled,
         uint256 toTreasury
     );
+
     event Claimed(address indexed user, address indexed token, uint256 amount);
     event ClaimedTo(
         address indexed user,
@@ -88,7 +84,7 @@ contract IncentiveEngine is
     );
     event PayoutAddressSet(address indexed user, address indexed newPayout);
 
-    // -------- Init / Upgrade --------
+    // -------- Init --------
     function initialize(address admin, address _registry) public initializer {
         __AccessControl_init();
         __ReentrancyGuard_init();
@@ -117,17 +113,10 @@ contract IncentiveEngine is
         Split calldata s
     ) external onlyRole(ADMIN_ROLE) {
         require(s.treasury != address(0), "treasury=0");
-        require(
-            uint256(s.buyerCashbackBps) + s.l1ReferrerBps + s.l2ReferrerBps <=
-                10_000,
-            "bps>100%"
-        );
         splits[scope] = s;
         emit SplitSet(
             scope,
             s.buyerCashbackBps,
-            s.l1ReferrerBps,
-            s.l2ReferrerBps,
             s.payoutToken,
             s.treasury,
             s.recycleMissingToBuyer,
@@ -136,9 +125,22 @@ contract IncentiveEngine is
         );
     }
 
-    // -------- User payout preferences (Option B) --------
+    function setReferrerBps(
+        bytes32 scope,
+        uint16[] calldata bps
+    ) external onlyRole(ADMIN_ROLE) {
+        Split memory s = splits[scope];
+        require(s.treasury != address(0), "set split first");
 
-    /// @notice Set preferred payout wallet for future accruals.
+        uint256 sum = s.buyerCashbackBps;
+        for (uint256 i = 0; i < bps.length; i++) sum += bps[i];
+        require(sum <= 10_000, "bps>100%");
+
+        referrerBps[scope] = bps;
+        emit ReferrerBpsSet(scope, bps);
+    }
+
+    // -------- User prefs --------
     function setPayoutAddress(address newPayout) external {
         require(newPayout != address(0), "payout=0");
         payoutOf[msg.sender] = newPayout;
@@ -150,9 +152,7 @@ contract IncentiveEngine is
         return p == address(0) ? a : p;
     }
 
-    // -------- Settlement (entrypoints for marketplace / token-sale) --------
-
-    /// @notice Settle a native-coin POOL. `msg.value` must equal pool amount.
+    // -------- Settlement --------
     function settleNative(
         bytes32 scope,
         address buyer,
@@ -163,7 +163,6 @@ contract IncentiveEngine is
         _settle(scope, buyer, seller, address(0), msg.value, s);
     }
 
-    /// @notice Settle an ERC20 POOL. Marketplace must have approved & will transferFrom here.
     function settleERC20(
         bytes32 scope,
         address buyer,
@@ -172,8 +171,6 @@ contract IncentiveEngine is
     ) external nonReentrant {
         Split memory s = splits[scope];
         require(s.active && s.payoutToken != address(0), "erc20 disabled");
-
-        // Pull tokens from caller → engine (caller should be the marketplace)
         require(
             IERC20(s.payoutToken).transferFrom(
                 msg.sender,
@@ -182,13 +179,10 @@ contract IncentiveEngine is
             ),
             "transferFrom failed"
         );
-
         _settle(scope, buyer, seller, s.payoutToken, poolAmount, s);
     }
 
     // -------- Claims --------
-
-    /// @notice Claim accumulated rewards in native coin or ERC20 to msg.sender.
     function claim(address token) external nonReentrant {
         uint256 amt = claimable[msg.sender][token];
         require(amt > 0, "nothing");
@@ -200,14 +194,11 @@ contract IncentiveEngine is
         } else {
             require(IERC20(token).transfer(msg.sender, amt), "erc20 xfer");
         }
-
         emit Claimed(msg.sender, token, amt);
     }
 
-    /// @notice Withdraw to a specific address (nice UX).
     function claimTo(address token, address to) external nonReentrant {
         require(to != address(0), "to=0");
-
         uint256 amt = claimable[msg.sender][token];
         require(amt > 0, "nothing");
         claimable[msg.sender][token] = 0;
@@ -218,22 +209,7 @@ contract IncentiveEngine is
         } else {
             require(IERC20(token).transfer(to, amt), "erc20 xfer");
         }
-
         emit ClaimedTo(msg.sender, token, to, amt);
-    }
-
-    /// @notice Batch-migrate existing balances to your payout wallet (for multiple tokens).
-    function migrateAll(address[] calldata tokens) external nonReentrant {
-        address to = payoutOf[msg.sender];
-        require(to != address(0), "no payout set");
-
-        for (uint256 i = 0; i < tokens.length; i++) {
-            uint256 amt = claimable[msg.sender][tokens[i]];
-            if (amt > 0) {
-                claimable[msg.sender][tokens[i]] = 0;
-                claimable[to][tokens[i]] += amt;
-            }
-        }
     }
 
     // -------- Internal --------
@@ -245,70 +221,65 @@ contract IncentiveEngine is
         uint256 pool,
         Split memory s
     ) internal {
-        address l1 = registry.referrerOf(buyer);
-        address l2 = l1 != address(0) ? registry.referrerOf(l1) : address(0);
+        uint16[] memory levels = referrerBps[scope];
+        require(levels.length > 0, "no bps set");
 
-        // Preferred payout routing (Option B)
         address bBuyer = _beneficiary(buyer);
-        address bL1 = l1 == address(0) ? address(0) : _beneficiary(l1);
-        address bL2 = l2 == address(0) ? address(0) : _beneficiary(l2);
         address bSeller = seller == address(0)
             ? address(0)
             : _beneficiary(seller);
 
         uint256 toBuyer = (pool * s.buyerCashbackBps) / 10_000;
-        uint256 toL1 = l1 != address(0) ? (pool * s.l1ReferrerBps) / 10_000 : 0;
-        uint256 toL2 = l2 != address(0) ? (pool * s.l2ReferrerBps) / 10_000 : 0;
+        uint256 distributed = toBuyer;
+        uint256 refTotal = 0;
+        uint256 toSellerRecycled = 0; // track recycled shares
 
-        // Recycle missing referral shares
-        if (s.recycleMissingToBuyer) {
-            if (toL1 == 0 && s.l1ReferrerBps > 0)
-                toBuyer += (pool * s.l1ReferrerBps) / 10_000;
-            if (toL2 == 0 && s.l2ReferrerBps > 0)
-                toBuyer += (pool * s.l2ReferrerBps) / 10_000;
-        } else if (s.recycleMissingToSeller && bSeller != address(0)) {
-            if (toL1 == 0 && s.l1ReferrerBps > 0)
-                claimable[bSeller][token] += (pool * s.l1ReferrerBps) / 10_000;
-            if (toL2 == 0 && s.l2ReferrerBps > 0)
-                claimable[bSeller][token] += (pool * s.l2ReferrerBps) / 10_000;
-        }
+        address current = buyer;
+        for (uint256 i = 0; i < levels.length; i++) {
+            current = registry.referrerOf(current);
+            uint256 bps = levels[i];
+            uint256 share = (pool * bps) / 10_000;
 
-        uint256 distributed = toBuyer + toL1 + toL2;
+            if (current == address(0)) {
+                if (share > 0) {
+                    if (s.recycleMissingToBuyer) {
+                        toBuyer += share;
+                        distributed += share;
+                    } else if (
+                        s.recycleMissingToSeller && bSeller != address(0)
+                    ) {
+                        claimable[bSeller][token] += share;
+                        distributed += share;
+                        toSellerRecycled += share; // NEW
+                    }
+                }
+                continue;
+            }
 
-        // Include recycled-to-seller amounts in distributed math
-        if (
-            !s.recycleMissingToBuyer &&
-            s.recycleMissingToSeller &&
-            bSeller != address(0)
-        ) {
-            uint256 recycled = ((
-                l1 == address(0) ? (pool * s.l1ReferrerBps) / 10_000 : 0
-            ) + (l2 == address(0) ? (pool * s.l2ReferrerBps) / 10_000 : 0));
-            distributed += recycled;
+            claimable[_beneficiary(current)][token] += share;
+            refTotal += share;
+            distributed += share;
         }
 
         uint256 toTreasury = pool - distributed;
 
         if (toBuyer > 0) claimable[bBuyer][token] += toBuyer;
-        if (toL1 > 0) claimable[bL1][token] += toL1;
-        if (toL2 > 0) claimable[bL2][token] += toL2;
         if (toTreasury > 0) claimable[s.treasury][token] += toTreasury;
 
         emit PoolSettled(
             scope,
             buyer,
-            l1,
-            l2,
+            seller,
             token,
             pool,
             toBuyer,
-            toL1,
-            toL2,
+            refTotal,
+            toSellerRecycled,
             toTreasury
         );
     }
 
-    // -------- View helpers --------
+    // -------- Views --------
     function claimableOf(
         address user,
         address token
@@ -317,6 +288,6 @@ contract IncentiveEngine is
     }
 
     function version() external pure returns (string memory) {
-        return "IncentiveEngine v1 (pool splitter + payout routing)";
+        return "IncentiveEngine v1 (flex-depth + seller in events)";
     }
 }

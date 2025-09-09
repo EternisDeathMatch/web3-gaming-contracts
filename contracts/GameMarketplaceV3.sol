@@ -374,7 +374,8 @@ contract GameMarketplaceV3 is
     event IncentivePoolForwarded(
         bytes32 indexed scope,
         address indexed buyer,
-        address indexed collection,
+        address indexed seller,
+        address collection,
         uint256 amount
     );
 
@@ -458,7 +459,8 @@ contract GameMarketplaceV3 is
                 );
                 emit IncentivePoolForwarded(
                     scope,
-                    msg.sender,
+                    msg.sender, // buyer
+                    listing.seller, // seller
                     listing.nftContract,
                     poolAmount
                 );
@@ -510,7 +512,8 @@ contract GameMarketplaceV3 is
                 );
                 emit IncentivePoolForwarded(
                     scope,
-                    msg.sender,
+                    msg.sender, // buyer
+                    listing.seller, // seller
                     listing.nftContract,
                     poolAmount
                 );
