@@ -13,6 +13,8 @@ import { autofillFeeRecipient } from "./ui";
 import { deployRegistry } from "./deployRegistry";
 import { deployEngine } from "./deployEngine";
 import { wireIncentives } from "./wireIncentives";
+import { getRegistryImplAddress, callRegistryFn } from "./testReferralRegistry";
+import { getEngineImplAddress, callEngineFn } from "./testIncentiveEngine";
 
 declare global {
   interface Window {
@@ -286,6 +288,8 @@ const copyRegistryBtn = document.getElementById(
 ) as HTMLButtonElement;
 
 deployRegistryBtn.onclick = async function () {
+
+  console.log("Deploy Registry clicked");
   await deployRegistry({
     asProxy: registryProxyToggle.checked,
     out: deployRegistryOutput,
@@ -360,3 +364,100 @@ wireBtn.onclick = async function () {
     out: wireOut,
   });
 };
+
+// ===============================
+// === REFERRAL REGISTRY TESTS ===
+// ===============================
+const getRegistryImplBtn = document.getElementById(
+  "getRegistryImplBtn"
+) as HTMLButtonElement;
+const testRegistryProxyInput = document.getElementById(
+  "testRegistryProxyAddress"
+) as HTMLInputElement;
+const registryCurrentImplResult = document.getElementById(
+  "registryCurrentImplResult"
+) as HTMLElement;
+
+getRegistryImplBtn.onclick = async function () {
+  await getRegistryImplAddress(
+    testRegistryProxyInput.value.trim(),
+    registryCurrentImplResult
+  );
+};
+
+const callRegistryFnBtn = document.getElementById(
+  "callRegistryFnBtn"
+) as HTMLButtonElement;
+const registryFnSignatureInput = document.getElementById(
+  "registryFnSignature"
+) as HTMLInputElement;
+const registryFnArgsInput = document.getElementById(
+  "registryFnArgs"
+) as HTMLInputElement;
+const registryFnResult = document.getElementById(
+  "registryFnResult"
+) as HTMLElement;
+const registryIsWriteTx = document.getElementById(
+  "registryIsWriteTx"
+) as HTMLInputElement;
+
+callRegistryFnBtn.onclick = async function () {
+  await callRegistryFn({
+    proxyAddr: testRegistryProxyInput.value.trim(),
+    fnSig: registryFnSignatureInput.value.trim(),
+    fnArgs: registryFnArgsInput.value.trim()
+      ? registryFnArgsInput.value.trim().split(",")
+      : [],
+    isWrite: registryIsWriteTx.checked,
+    fnResult: registryFnResult,
+  });
+};
+
+// ============================
+// === INCENTIVE ENGINE TEST ===
+// ============================
+const getEngineImplBtn = document.getElementById(
+  "getEngineImplBtn"
+) as HTMLButtonElement;
+const testEngineProxyInput = document.getElementById(
+  "testEngineProxyAddress"
+) as HTMLInputElement;
+const engineCurrentImplResult = document.getElementById(
+  "engineCurrentImplResult"
+) as HTMLElement;
+
+getEngineImplBtn.onclick = async function () {
+  await getEngineImplAddress(
+    testEngineProxyInput.value.trim(),
+    engineCurrentImplResult
+  );
+};
+
+const callEngineFnBtn = document.getElementById(
+  "callEngineFnBtn"
+) as HTMLButtonElement;
+const engineFnSignatureInput = document.getElementById(
+  "engineFnSignature"
+) as HTMLInputElement;
+const engineFnArgsInput = document.getElementById(
+  "engineFnArgs"
+) as HTMLInputElement;
+const engineFnResult = document.getElementById(
+  "engineFnResult"
+) as HTMLElement;
+const engineIsWriteTx = document.getElementById(
+  "engineIsWriteTx"
+) as HTMLInputElement;
+
+callEngineFnBtn.onclick = async function () {
+  await callEngineFn({
+    proxyAddr: testEngineProxyInput.value.trim(),
+    fnSig: engineFnSignatureInput.value.trim(),
+    fnArgs: engineFnArgsInput.value.trim()
+      ? engineFnArgsInput.value.trim().split(",")
+      : [],
+    isWrite: engineIsWriteTx.checked,
+    fnResult: engineFnResult,
+  });
+};
+
