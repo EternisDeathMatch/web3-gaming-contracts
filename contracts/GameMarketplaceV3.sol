@@ -413,7 +413,7 @@ contract GameMarketplaceV3 is
         );
 
         uint256 totalPrice = listing.price;
-        uint256 platformFee = (totalPrice * platformFeeBps) / 10000;
+        uint256 platformFee = (totalPrice * platformFeeBps) / 10_000;
         uint256 royaltyFee = 0;
         address royaltyRecipient = address(0);
 
@@ -427,14 +427,15 @@ contract GameMarketplaceV3 is
                 .royaltyInfo(listing.tokenId, totalPrice);
         }
 
-        // ---- V3: compute pool & adjust seller proceeds ----
+        // Compute pool (but only *withhold* it if engine is active)
         uint256 pBps = poolBps[listing.nftContract];
         uint256 poolAmount = pBps == 0 ? 0 : (totalPrice * pBps) / 10_000;
+        bool engineActive = (incentiveEngine != address(0)) && (poolAmount > 0);
 
         uint256 sellerProceeds = totalPrice -
             platformFee -
             royaltyFee -
-            poolAmount;
+            (engineActive ? poolAmount : 0);
 
         if (listing.paymentToken == address(0)) {
             // Native token payment
@@ -442,18 +443,19 @@ contract GameMarketplaceV3 is
 
             // pay fees & seller
             if (platformFee > 0) payable(feeRecipient).transfer(platformFee);
-            if (royaltyFee > 0 && royaltyRecipient != address(0))
+            if (royaltyFee > 0 && royaltyRecipient != address(0)) {
                 payable(royaltyRecipient).transfer(royaltyFee);
+            }
             if (sellerProceeds > 0)
                 payable(listing.seller).transfer(sellerProceeds);
 
-            // ---- V3: forward pool to engine (native) ----
-            if (poolAmount > 0 && incentiveEngine != address(0)) {
+            // Forward pool (native) only if engine is set
+            if (engineActive) {
                 bytes32 scope = _scopeFor(listing.nftContract);
                 IIncentiveEngine(incentiveEngine).settleNative{
                     value: poolAmount
                 }(
-                    _scopeFor(listing.nftContract),
+                    scope,
                     msg.sender, // buyer
                     listing.seller // seller
                 );
@@ -461,7 +463,7 @@ contract GameMarketplaceV3 is
                     scope,
                     msg.sender, // buyer
                     listing.seller, // seller
-                    listing.nftContract,
+                    listing.nftContract, // collection
                     poolAmount
                 );
             }
@@ -481,31 +483,34 @@ contract GameMarketplaceV3 is
             );
 
             // pay fees & seller
-            if (platformFee > 0)
+            if (platformFee > 0) {
                 require(
                     token.transfer(feeRecipient, platformFee),
                     "Platform fee xfer failed"
                 );
-            if (royaltyFee > 0 && royaltyRecipient != address(0))
+            }
+            if (royaltyFee > 0 && royaltyRecipient != address(0)) {
                 require(
                     token.transfer(royaltyRecipient, royaltyFee),
                     "Royalty xfer failed"
                 );
-            if (sellerProceeds > 0)
+            }
+            if (sellerProceeds > 0) {
                 require(
                     token.transfer(listing.seller, sellerProceeds),
                     "Seller xfer failed"
                 );
+            }
 
-            // ---- V3: forward pool to engine (ERC-20) ----
-            if (poolAmount > 0 && incentiveEngine != address(0)) {
+            // Forward pool (ERC20) only if engine is set
+            if (engineActive) {
                 bytes32 scope = _scopeFor(listing.nftContract);
                 require(
                     token.approve(incentiveEngine, poolAmount),
                     "Approve failed"
                 );
                 IIncentiveEngine(incentiveEngine).settleERC20(
-                    _scopeFor(listing.nftContract),
+                    scope,
                     msg.sender, // buyer
                     listing.seller, // seller
                     poolAmount
@@ -514,7 +519,7 @@ contract GameMarketplaceV3 is
                     scope,
                     msg.sender, // buyer
                     listing.seller, // seller
-                    listing.nftContract,
+                    listing.nftContract, // collection
                     poolAmount
                 );
             }
